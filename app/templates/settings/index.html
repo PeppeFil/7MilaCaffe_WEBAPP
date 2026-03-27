@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Impostazioni | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Impostazioni</h2>
+  <p>Configurazioni operative del gestionale.</p>
+</section>
+
+<div class="row g-3">
+  <div class="col-12">
+    <div class="panel-card">
+      <h5>Preferenze negozio</h5>
+      <form method="post" action="{{ url_for('settings.salva_preferenze') }}" class="row g-2 mt-1">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        {% for p in preferenze %}
+          <div class="col-md-6">
+            <label class="form-label">{{ p.descrizione or p.chiave }}</label>
+            <input type="text" class="form-control" name="{{ p.chiave }}" value="{{ p.valore }}">
+          </div>
+        {% endfor %}
+        <div class="col-12 d-grid d-md-flex justify-content-md-end mt-2">
+          <button class="btn btn-coffee">Salva preferenze</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel-card h-100">
+      <h5>Marche</h5>
+      <form method="post" action="{{ url_for('settings.crea_marca') }}" class="row g-2 mb-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-5"><input class="form-control" name="nome" placeholder="Nome marca" required></div>
+        <div class="col-md-5"><input class="form-control" name="descrizione" placeholder="Descrizione"></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-outline-light">Aggiungi</button></div>
+      </form>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Nome</th><th>Descrizione</th></tr></thead>
+          <tbody>
+            {% for m in marche %}
+              <tr><td>{{ m.nome }}</td><td>{{ m.descrizione or '-' }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel-card h-100">
+      <h5>Compatibilita</h5>
+      <form method="post" action="{{ url_for('settings.crea_compatibilita') }}" class="row g-2 mb-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-5"><input class="form-control" name="nome" placeholder="Nome compatibilita" required></div>
+        <div class="col-md-5"><input class="form-control" name="descrizione" placeholder="Descrizione"></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-outline-light">Aggiungi</button></div>
+      </form>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Nome</th><th>Descrizione</th></tr></thead>
+          <tbody>
+            {% for c in compatibilita %}
+              <tr><td>{{ c.nome }}</td><td>{{ c.descrizione or '-' }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel-card h-100">
+      <h5>Aliquote IVA</h5>
+      <form method="post" action="{{ url_for('settings.crea_aliquota_iva') }}" class="row g-2 mb-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-4"><input class="form-control" name="nome" placeholder="Nome" required></div>
+        <div class="col-md-3"><input type="number" min="0" step="0.01" class="form-control" name="aliquota" placeholder="Aliquota" required></div>
+        <div class="col-md-3"><input class="form-control" name="descrizione" placeholder="Descrizione"></div>
+        <div class="col-md-2 d-grid"><button class="btn btn-outline-light">Aggiungi</button></div>
+        <div class="col-md-3">
+          <select class="form-select" name="predefinita">
+            <option value="0">Non predef.</option>
+            <option value="1">Predefinita</option>
+          </select>
+        </div>
+      </form>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Nome</th><th>Aliquota</th><th>Stato</th></tr></thead>
+          <tbody>
+            {% for iva in aliquote_iva %}
+              <tr>
+                <td>{{ iva.nome }}</td>
+                <td>{{ "%.2f"|format(iva.aliquota) }}%</td>
+                <td>
+                  {% if iva.predefinita %}<span class="badge bg-success">Predefinita</span>{% else %}<span class="badge bg-secondary">Attiva</span>{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="panel-card h-100">
+      <h5>Anagrafica clienti</h5>
+      <form method="post" action="{{ url_for('settings.crea_cliente') }}" class="row g-2 mb-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-md-6"><input class="form-control" name="nome" placeholder="Nome" required></div>
+        <div class="col-md-6"><input class="form-control" name="cognome" placeholder="Cognome"></div>
+        <div class="col-md-6"><input class="form-control" name="ragione_sociale" placeholder="Ragione sociale"></div>
+        <div class="col-md-6"><input class="form-control" name="telefono" placeholder="Telefono"></div>
+        <div class="col-md-6"><input class="form-control" name="email" placeholder="Email"></div>
+        <div class="col-md-6"><input class="form-control" name="indirizzo" placeholder="Indirizzo"></div>
+        <div class="col-md-6"><input class="form-control" name="partita_iva" placeholder="Partita IVA"></div>
+        <div class="col-md-6"><input class="form-control" name="codice_fiscale" placeholder="Codice fiscale"></div>
+        <div class="col-12"><input class="form-control" name="note" placeholder="Note"></div>
+        <div class="col-12 d-grid"><button class="btn btn-outline-light">Aggiungi cliente</button></div>
+      </form>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th>Cliente</th><th>Contatti</th><th>Stato</th><th></th></tr></thead>
+          <tbody>
+            {% for cliente in clienti %}
+              <tr>
+                <td>{{ cliente.display_name }}</td>
+                <td>{{ cliente.email or cliente.telefono or '-' }}</td>
+                <td>
+                  {% if cliente.attivo %}
+                    <span class="badge bg-success">Attivo</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Disattivato</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <form method="post" action="{{ url_for('settings.toggle_cliente', customer_id=cliente.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button class="btn btn-sm btn-outline-light">Toggle</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

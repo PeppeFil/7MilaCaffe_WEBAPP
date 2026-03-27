@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}{% if prodotto %}Modifica{% else %}Nuovo{% endif %} Prodotto | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>{% if prodotto %}Modifica{% else %}Nuovo{% endif %} Prodotto</h2>
+  <p>Compila i dettagli articolo e le informazioni di magazzino.</p>
+</section>
+
+<div class="panel-card">
+  <form method="post" class="row g-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-6">
+      <label class="form-label">Nome *</label>
+      <input type="text" class="form-control" name="nome" required value="{{ prodotto.nome if prodotto else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Categoria *</label>
+      <select name="categoria_id" class="form-select" required>
+        <option value="">Seleziona</option>
+        {% for c in categorie %}
+          <option value="{{ c.id }}" {% if prodotto and prodotto.categoria_id == c.id %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Marca *</label>
+      <select name="marca_id" class="form-select" required>
+        <option value="">Seleziona</option>
+        {% for m in marche %}
+          <option value="{{ m.id }}" {% if prodotto and prodotto.marca_id == m.id %}selected{% endif %}>{{ m.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Compatibilita</label>
+      <select name="compatibilita_id" class="form-select">
+        <option value="">Nessuna</option>
+        {% for comp in compatibilita %}
+          <option value="{{ comp.id }}" {% if prodotto and prodotto.compatibilita_id == comp.id %}selected{% endif %}>{{ comp.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Formato confezione</label>
+      <input type="text" class="form-control" name="formato_confezione" value="{{ prodotto.formato_confezione if prodotto else '' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">SKU / Barcode</label>
+      <input type="text" class="form-control" name="sku_barcode" value="{{ prodotto.sku_barcode if prodotto else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Prezzo acquisto *</label>
+      <input type="number" min="0" step="0.01" class="form-control" name="prezzo_acquisto" required value="{{ prodotto.prezzo_acquisto if prodotto else '0.00' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Prezzo vendita *</label>
+      <input type="number" min="0" step="0.01" class="form-control" name="prezzo_vendita" required value="{{ prodotto.prezzo_vendita if prodotto else '0.00' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Quantita disponibile *</label>
+      <input type="number" min="0" step="1" class="form-control" name="quantita_disponibile" required value="{{ prodotto.quantita_disponibile if prodotto else '0' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Scorta minima *</label>
+      <input type="number" min="0" step="1" class="form-control" name="quantita_minima_alert" required value="{{ prodotto.quantita_minima_alert if prodotto else '0' }}">
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Fornitore</label>
+      <select name="fornitore_id" class="form-select">
+        <option value="">Nessuno</option>
+        {% for f in fornitori %}
+          <option value="{{ f.id }}" {% if prodotto and prodotto.fornitore_id == f.id %}selected{% endif %}>{{ f.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-8">
+      <label class="form-label">Note</label>
+      <input type="text" class="form-control" name="note" value="{{ prodotto.note if prodotto else '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Attivo</label>
+      <select name="attivo" class="form-select">
+        <option value="1" {% if not prodotto or prodotto.attivo %}selected{% endif %}>Si</option>
+        <option value="0" {% if prodotto and not prodotto.attivo %}selected{% endif %}>No</option>
+      </select>
+    </div>
+    <div class="col-12 d-flex gap-2">
+      <button type="submit" class="btn btn-coffee">Salva</button>
+      <a class="btn btn-outline-light" href="{{ url_for('products.index') }}">Annulla</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

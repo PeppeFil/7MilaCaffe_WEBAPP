@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}Vendite | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Vendite</h2>
+  <p>Storico scontrini con filtro periodo e stato.</p>
+</section>
+
+<div class="panel-card mb-3">
+  <form method="get" class="row g-2">
+    <div class="col-md-2">
+      <input type="date" name="data_da" class="form-control" value="{{ filtri.get('data_da','') }}">
+    </div>
+    <div class="col-md-2">
+      <input type="date" name="data_a" class="form-control" value="{{ filtri.get('data_a','') }}">
+    </div>
+    <div class="col-md-2">
+      <select name="stato" class="form-select">
+        <option value="">Stato</option>
+        <option value="completata" {% if filtri.get('stato') == 'completata' %}selected{% endif %}>Completata</option>
+        <option value="annullata" {% if filtri.get('stato') == 'annullata' %}selected{% endif %}>Annullata</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="metodo_pagamento" class="form-select">
+        <option value="">Pagamento</option>
+        <option value="contanti" {% if filtri.get('metodo_pagamento') == 'contanti' %}selected{% endif %}>Contanti</option>
+        <option value="carta" {% if filtri.get('metodo_pagamento') == 'carta' %}selected{% endif %}>Carta</option>
+        <option value="bonifico" {% if filtri.get('metodo_pagamento') == 'bonifico' %}selected{% endif %}>Bonifico</option>
+        <option value="altro" {% if filtri.get('metodo_pagamento') == 'altro' %}selected{% endif %}>Altro</option>
+      </select>
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-outline-light">Filtra</button>
+    </div>
+    <div class="col-md-2 d-grid">
+      <a class="btn btn-coffee" href="{{ url_for('cash.cassa') }}">Nuova vendita</a>
+    </div>
+  </form>
+</div>
+
+<div class="panel-card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Data/Ora</th>
+          <th>Totale netto</th>
+          <th>IVA %</th>
+          <th>Pagamento</th>
+          <th>Cliente</th>
+          <th>Operatore</th>
+          <th>Stato</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in vendite %}
+          <tr>
+            <td>#{{ v.id }}</td>
+            <td>{{ v.data_ora.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td><strong>EUR {{ "%.2f"|format(v.totale_netto) }}</strong></td>
+            <td>{{ "%.2f"|format(v.aliquota_iva_snapshot or 0) }}</td>
+            <td>{{ v.metodo_pagamento }}</td>
+            <td>{{ v.customer.display_name if v.customer else 'Generico' }}</td>
+            <td>{{ v.operatore.username if v.operatore else "-" }}</td>
+            <td>
+              {% if v.stato == 'completata' %}
+                <span class="badge bg-success">Completata</span>
+              {% else %}
+                <span class="badge bg-danger">Annullata</span>
+              {% endif %}
+            </td>
+            <td>
+              <a class="btn btn-sm btn-outline-light" href="{{ url_for('sales.detail', sale_id=v.id) }}">Dettaglio</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

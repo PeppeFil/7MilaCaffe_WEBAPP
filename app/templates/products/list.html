@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Prodotti | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <div>
+    <h2>Prodotti</h2>
+    <p>Gestione catalogo, prezzi e quantita disponibili.</p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('products.export_csv', **filtri) }}" class="btn btn-outline-light">Export CSV</a>
+    {% if current_user.has_role('Admin') %}
+      <a href="{{ url_for('products.nuovo') }}" class="btn btn-coffee">Nuovo prodotto</a>
+    {% endif %}
+  </div>
+</section>
+
+<div class="panel-card mb-3">
+  <form method="get" class="row g-2">
+    <div class="col-md-3">
+      <input type="text" name="q" class="form-control" placeholder="Nome / marca / barcode" value="{{ filtri.get('q','') }}">
+    </div>
+    <div class="col-md-2">
+      <select name="categoria_id" class="form-select">
+        <option value="">Categoria</option>
+        {% for c in categorie %}
+          <option value="{{ c.id }}" {% if filtri.get('categoria_id') == (c.id|string) %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="marca_id" class="form-select">
+        <option value="">Marca</option>
+        {% for m in marche %}
+          <option value="{{ m.id }}" {% if filtri.get('marca_id') == (m.id|string) %}selected{% endif %}>{{ m.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="compatibilita_id" class="form-select">
+        <option value="">Compatibilita</option>
+        {% for comp in compatibilita %}
+          <option value="{{ comp.id }}" {% if filtri.get('compatibilita_id') == (comp.id|string) %}selected{% endif %}>{{ comp.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1">
+      <input type="text" name="sku" class="form-control" placeholder="SKU" value="{{ filtri.get('sku','') }}">
+    </div>
+    <div class="col-md-1">
+      <select name="attivo" class="form-select">
+        <option value="">Stato</option>
+        <option value="1" {% if filtri.get('attivo') == '1' %}selected{% endif %}>Attivo</option>
+        <option value="0" {% if filtri.get('attivo') == '0' %}selected{% endif %}>Off</option>
+      </select>
+    </div>
+    <div class="col-md-1 d-grid">
+      <button class="btn btn-outline-light">Filtra</button>
+    </div>
+  </form>
+</div>
+
+{% if current_user.has_role('Admin') %}
+<div class="panel-card mb-3">
+  <form method="post" action="{{ url_for('products.import_csv') }}" enctype="multipart/form-data" class="row g-2 align-items-center">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-9">
+      <input class="form-control" type="file" name="file_csv" accept=".csv" required>
+    </div>
+    <div class="col-md-3 d-grid">
+      <button class="btn btn-outline-light">Import CSV</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="panel-card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Categoria</th>
+          <th>Marca</th>
+          <th>Compatibilita</th>
+          <th>Prezzi</th>
+          <th>Qta</th>
+          <th>SKU</th>
+          <th>Stato</th>
+          {% if current_user.has_role('Admin') %}<th>Azioni</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in prodotti %}
+        <tr>
+          <td>{{ p.id }}</td>
+          <td>{{ p.nome }}</td>
+          <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
+          <td>{{ p.brand.nome if p.brand else '-' }}</td>
+          <td>{{ p.compatibility.nome if p.compatibility else "-" }}</td>
+          <td>
+            <div class="small">Acq: EUR {{ "%.2f"|format(p.prezzo_acquisto) }}</div>
+            <div class="small">Vend: EUR {{ "%.2f"|format(p.prezzo_vendita) }}</div>
+          </td>
+          <td>
+            <span class="badge {% if p.stato_disponibilita == 'esaurito' %}bg-danger{% elif p.stato_disponibilita == 'quasi esaurito' %}bg-warning text-dark{% else %}bg-success{% endif %}">
+              {{ p.quantita_disponibile }}
+            </span>
+          </td>
+          <td>{{ p.sku_barcode or "-" }}</td>
+          <td>
+            {% if p.attivo %}
+              <span class="badge bg-success">Attivo</span>
+            {% else %}
+              <span class="badge bg-secondary">Disattivato</span>
+            {% endif %}
+          </td>
+          {% if current_user.has_role('Admin') %}
+          <td class="d-flex gap-1">
+            <a class="btn btn-sm btn-outline-light" href="{{ url_for('products.modifica', product_id=p.id) }}">Modifica</a>
+            <form method="post" action="{{ url_for('products.duplica', product_id=p.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-warning">Duplica</button>
+            </form>
+            <form method="post" action="{{ url_for('products.elimina', product_id=p.id) }}" onsubmit="return confirm('Confermi disattivazione prodotto?');">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm btn-outline-danger">Disattiva</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

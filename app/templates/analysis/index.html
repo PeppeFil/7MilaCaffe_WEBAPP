@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}Analisi Vendite | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Analisi Vendite</h2>
+  <p>KPI, trend, categorie e performance prodotti.</p>
+</section>
+
+<div class="panel-card mb-3">
+  <form method="get" class="row g-2">
+    <div class="col-md-3">
+      <select name="periodo" class="form-select">
+        <option value="oggi" {% if periodo == 'oggi' %}selected{% endif %}>Oggi</option>
+        <option value="ieri" {% if periodo == 'ieri' %}selected{% endif %}>Ieri</option>
+        <option value="ultimi_7" {% if periodo == 'ultimi_7' %}selected{% endif %}>Ultimi 7 giorni</option>
+        <option value="ultimi_30" {% if periodo == 'ultimi_30' %}selected{% endif %}>Ultimi 30 giorni</option>
+        <option value="mese_corrente" {% if periodo == 'mese_corrente' %}selected{% endif %}>Mese corrente</option>
+        <option value="custom" {% if periodo == 'custom' %}selected{% endif %}>Intervallo personalizzato</option>
+      </select>
+    </div>
+    <div class="col-md-3">
+      <input type="date" name="data_inizio" class="form-control" value="{{ data_inizio }}">
+    </div>
+    <div class="col-md-3">
+      <input type="date" name="data_fine" class="form-control" value="{{ data_fine }}">
+    </div>
+    <div class="col-md-3 d-grid">
+      <button class="btn btn-outline-light">Aggiorna</button>
+    </div>
+  </form>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-md-3"><div class="kpi-card"><p>Fatturato</p><h4>EUR {{ "%.2f"|format(data.tot_fatturato) }}</h4></div></div>
+  <div class="col-md-3"><div class="kpi-card"><p>Margine stimato</p><h4>EUR {{ "%.2f"|format(data.tot_margine) }}</h4></div></div>
+  <div class="col-md-3"><div class="kpi-card"><p>Media scontrino</p><h4>EUR {{ "%.2f"|format(data.media_scontrino) }}</h4></div></div>
+  <div class="col-md-3"><div class="kpi-card"><p>Numero vendite</p><h4>{{ data.count_vendite }}</h4></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="panel-card">
+      <h5>Trend giornaliero</h5>
+      <canvas id="dailyTrend"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="panel-card">
+      <h5>Fatturato per categoria</h5>
+      <canvas id="categoryPie"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-6">
+    <div class="panel-card">
+      <h5>Prodotti più venduti</h5>
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Prodotto</th><th>Pezzi</th><th>Valore</th></tr></thead>
+        <tbody>
+          {% for r in data.top_prodotti %}
+            <tr><td>{{ r.nome }}</td><td>{{ r.pezzi }}</td><td>EUR {{ "%.2f"|format(r.valore) }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="panel-card">
+      <h5>Prodotti meno venduti</h5>
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Prodotto</th><th>Pezzi</th></tr></thead>
+        <tbody>
+          {% for r in data.low_prodotti %}
+            <tr><td>{{ r.nome }}</td><td>{{ r.pezzi }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel-card mt-3">
+  <h5>Metodi di pagamento più usati</h5>
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Metodo</th><th>Numero</th><th>Totale</th></tr></thead>
+    <tbody>
+      {% for p in data.metodi_pagamento %}
+        <tr><td>{{ p.metodo_pagamento }}</td><td>{{ p.numero }}</td><td>EUR {{ "%.2f"|format(p.totale) }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const dailyRows = {{ data.vendite_giornaliere | tojson }};
+  const categoryRows = {{ data.fatturato_categoria | tojson }};
+
+  new Chart(document.getElementById('dailyTrend'), {
+    type: 'bar',
+    data: {
+      labels: dailyRows.map(x => x.giorno),
+      datasets: [{
+        label: 'EUR',
+        data: dailyRows.map(x => x.totale),
+        backgroundColor: '#6f4e37'
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } } }
+  });
+
+  new Chart(document.getElementById('categoryPie'), {
+    type: 'doughnut',
+    data: {
+      labels: categoryRows.map(x => x.nome),
+      datasets: [{
+        data: categoryRows.map(x => x.totale),
+        backgroundColor: ['#4e342e', '#8d6e63', '#a1887f', '#6d4c41', '#d7ccc8']
+      }]
+    },
+    options: { responsive: true }
+  });
+</script>
+{% endblock %}

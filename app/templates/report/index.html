@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Report | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Report</h2>
+  <p>Esportazione dati in CSV e PDF per controllo operativo e amministrativo.</p>
+</section>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="panel-card">
+      <h5>Vendite giornaliere</h5>
+      <div class="d-grid gap-2">
+        <a class="btn btn-coffee" href="{{ url_for('report.export_csv', nome_report='vendite_giornaliere') }}">Export CSV</a>
+        <a class="btn btn-outline-light" href="{{ url_for('report.export_pdf') }}">Export PDF</a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="panel-card">
+      <h5>Magazzino attuale</h5>
+      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='magazzino_attuale') }}">Export CSV</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="panel-card">
+      <h5>Movimenti magazzino</h5>
+      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='movimenti_magazzino') }}">Export CSV</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="panel-card">
+      <h5>Prodotti sotto scorta</h5>
+      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='sotto_scorta') }}">Export CSV</a>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="panel-card">
+      <h5>Prodotti più venduti</h5>
+      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='prodotti_piu_venduti') }}">Export CSV</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

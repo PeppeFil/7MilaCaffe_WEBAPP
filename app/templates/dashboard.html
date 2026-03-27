@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block title %}Dashboard | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Dashboard</h2>
+  <p>Riepilogo operativo del negozio in tempo reale.</p>
+</section>
+
+<div class="row g-3">
+  <div class="col-md-3">
+    <div class="kpi-card">
+      <p>Incasso Oggi</p>
+      <h3>EUR {{ "%.2f"|format(stats.incasso_oggi) }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card">
+      <p>Vendite Oggi</p>
+      <h3>{{ stats.numero_vendite_oggi }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card">
+      <p>Pezzi Venduti Oggi</p>
+      <h3>{{ stats.pezzi_venduti_oggi }}</h3>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="kpi-card">
+      <p>Top Prodotto Oggi</p>
+      <h6>
+        {% if stats.prodotto_top_oggi %}
+          {{ stats.prodotto_top_oggi[0] }} ({{ stats.prodotto_top_oggi[1] }} pz)
+        {% else %}
+          Nessuna vendita
+        {% endif %}
+      </h6>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mt-1">
+  <div class="col-lg-8">
+    <div class="panel-card">
+      <h5>Andamento Vendite Ultimi 7 Giorni</h5>
+      <canvas id="trendChart" height="120"></canvas>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="panel-card">
+      <h5>Magazzino</h5>
+      <ul class="list-unstyled small mb-0">
+        <li>Prodotti attivi: <strong>{{ stats.magazzino.numero_prodotti }}</strong></li>
+        <li>Pezzi totali: <strong>{{ stats.magazzino.pezzi_totali }}</strong></li>
+        <li>Valore costo: <strong>EUR {{ "%.2f"|format(stats.magazzino.valore_costo) }}</strong></li>
+        <li>Valore vendita: <strong>EUR {{ "%.2f"|format(stats.magazzino.valore_vendita) }}</strong></li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="panel-card mt-3">
+  <h5>Prodotti Sotto Scorta Minima</h5>
+  {% if stats.sotto_scorta %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th>Prodotto</th>
+            <th>Categoria</th>
+            <th>Disponibile</th>
+            <th>Minimo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in stats.sotto_scorta %}
+            <tr>
+              <td>{{ p.nome }}</td>
+              <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
+              <td><span class="badge bg-danger">{{ p.quantita_disponibile }}</span></td>
+              <td>{{ p.quantita_minima_alert }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-success mb-0">Nessun prodotto sotto soglia.</p>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const trendData = {{ stats.trend_7_giorni | tojson }};
+  const ctx = document.getElementById('trendChart');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: trendData.map(item => item.giorno),
+      datasets: [{
+        label: 'Vendite (EUR)',
+        data: trendData.map(item => item.totale),
+        borderColor: '#6f4e37',
+        backgroundColor: 'rgba(111,78,55,.15)',
+        fill: true,
+        tension: 0.25
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } }
+    }
+  });
+</script>
+{% endblock %}

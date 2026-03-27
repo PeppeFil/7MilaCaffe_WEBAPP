@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Cassa | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Cassa Rapida</h2>
+  <p>Ricerca prodotto, aggiunta al carrello e chiusura vendita.</p>
+</section>
+
+<div class="row g-3">
+  <div class="col-xl-7">
+    <div class="panel-card">
+      <div class="row g-2 mb-3">
+        <div class="col-md-8">
+          <input id="searchInput" type="text" class="form-control form-control-lg" placeholder="Cerca per nome, marca o barcode">
+        </div>
+        <div class="col-md-4">
+          <select id="categoriaFilter" class="form-select form-select-lg">
+            <option value="">Tutte le categorie</option>
+            {% for categoria in categorie %}
+              <option value="{{ categoria.id }}">{{ categoria.nome }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div id="productGrid" class="product-grid"></div>
+    </div>
+  </div>
+
+  <div class="col-xl-5">
+    <div class="panel-card">
+      <h5>Carrello</h5>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Prodotto</th>
+              <th>Qta</th>
+              <th>Prezzo</th>
+              <th>Subtotale</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="cartBody"></tbody>
+        </table>
+      </div>
+      <p id="emptyCartMsg" class="text-muted">Nessun prodotto nel carrello.</p>
+
+      <form method="post" action="{{ url_for('cash.checkout') }}" id="checkoutForm" class="row g-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="cart_payload" id="cartPayload">
+        <div class="col-md-6">
+          <label class="form-label">Tipo sconto</label>
+          <select name="sconto_tipo" id="scontoTipo" class="form-select">
+            <option value="nessuno">Nessuno</option>
+            <option value="percentuale">Percentuale</option>
+            <option value="fisso">Importo fisso</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Valore sconto</label>
+          <input type="number" min="0" step="0.01" id="scontoValore" class="form-control" value="0">
+        </div>
+        <div class="col-md-7">
+          <label class="form-label">Metodo pagamento</label>
+          <select id="metodoPagamento" class="form-select">
+            {% for metodo in metodi_pagamento %}
+              <option value="{{ metodo }}">{{ metodo|capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Totale Netto</label>
+          <input type="text" id="totaleNettoView" class="form-control fw-bold" value="EUR 0.00" readonly>
+        </div>
+        <div class="col-md-7">
+          <label class="form-label">Cliente</label>
+          <select id="customerId" class="form-select">
+            <option value="">Cliente generico</option>
+            {% for cliente in clienti %}
+              <option value="{{ cliente.id }}">{{ cliente.display_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-5">
+          <label class="form-label">Aliquota IVA</label>
+          <select id="vatRateId" class="form-select">
+            <option value="">Nessuna</option>
+            {% for iva in aliquote_iva %}
+              <option value="{{ iva.id }}" {% if iva.predefinita %}selected{% endif %}>{{ iva.nome }} ({{ "%.2f"|format(iva.aliquota) }}%)</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <label class="form-label">Note cliente</label>
+          <input type="text" id="noteCliente" class="form-control" placeholder="Note facoltative">
+        </div>
+        <div class="col-12 d-grid mt-3">
+          <button type="submit" class="btn btn-coffee btn-lg">Completa Vendita</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const initialProducts = {{ prodotti_json | tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/cassa.js') }}"></script>
+{% endblock %}

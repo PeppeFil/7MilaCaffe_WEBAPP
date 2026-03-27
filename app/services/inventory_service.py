@@ -1,0 +1,121 @@
+from datetime import datetime
+from decimal import Decimal
+
+from app.extensions import db
+from app.models import InventoryMovement, Product
+from app.services.audit_service import registra_attivita
+from app.utils.parsers import to_int
+
+
+MOVEMENT_DIRECTIONS = {
+    "carico": 1,
+    "scarico_manuale": -1,
+    "scarico_vendita": -1,
+    "rettifica": 0,
+    "reso": 1,
+    "omaggio": -1,
+    "danneggiato": -1,
+    "ripristino_annullo_vendita": 1,
+}
+
+
+def registra_movimento(
+    prodotto: Product,
+    tipo_movimento: str,
+    quantita: int,
+    operatore_id: int,
+    motivo: str = "",
+    costo_unitario: Decimal | None = None,
+    riferimento_entita: str | None = None,
+    note: str | None = None,
+    data_ora: datetime | None = None,
+    commit: bool = False,
+) -> InventoryMovement:
+    if tipo_movimento not in MOVEMENT_DIRECTIONS:
+        raise ValueError("Tipo movimento non valido.")
+
+    quantita_int = to_int(quantita)
+    if tipo_movimento != "rettifica" and quantita_int <= 0:
+        raise ValueError("La quantità deve essere positiva.")
+    if tipo_movimento == "rettifica" and quantita_int == 0:
+        raise ValueError("La rettifica deve avere quantità diversa da zero.")
+
+    if tipo_movimento == "rettifica":
+        delta = quantita_int
+    else:
+        delta = abs(quantita_int) * MOVEMENT_DIRECTIONS[tipo_movimento]
+
+    nuova_giacenza = prodotto.quantita_disponibile + delta
+    if nuova_giacenza < 0:
+        raise ValueError(
+            f"Stock insufficiente per {prodotto.nome}. Disponibile: {prodotto.quantita_disponibile}"
+        )
+
+    prodotto.quantita_disponibile = nuova_giacenza
+
+    movimento = InventoryMovement(
+        tipo_movimento=tipo_movimento,
+        data_ora=data_ora or datetime.utcnow(),
+        prodotto_id=prodotto.id,
+        quantita=delta,
+        motivo=motivo or None,
+        costo_unitario=costo_unitario or prodotto.prezzo_acquisto,
+        operatore_id=operatore_id,
+        riferimento_entita=riferimento_entita,
+        note=note,
+    )
+    db.session.add(movimento)
+
+    if commit:
+        db.session.commit()
+
+    return movimento
+
+
+def crea_movimento_manuale(
+    prodotto_id: int,
+    tipo_movimento: str,
+    quantita: int,
+    operatore_id: int,
+    motivo: str = "",
+    costo_unitario: Decimal | None = None,
+    note: str | None = None,
+) -> InventoryMovement:
+    prodotto = Product.query.get_or_404(prodotto_id)
+    movimento = registra_movimento(
+        prodotto=prodotto,
+        tipo_movimento=tipo_movimento,
+        quantita=quantita,
+        operatore_id=operatore_id,
+        motivo=motivo,
+        costo_unitario=costo_unitario,
+        note=note,
+    )
+
+    registra_attivita(
+        utente_id=operatore_id,
+        azione=f"movimento_{tipo_movimento}",
+        entita_tipo="inventory_movement",
+        entita_id=str(movimento.id),
+        dettagli=f"Prodotto {prodotto.nome}, delta {movimento.quantita}",
+    )
+    db.session.commit()
+    return movimento
+
+
+def query_movimenti(filtri: dict):
+    query = InventoryMovement.query.join(Product).order_by(InventoryMovement.data_ora.desc())
+
+    tipo = (filtri.get("tipo") or "").strip()
+    if tipo:
+        query = query.filter(InventoryMovement.tipo_movimento == tipo)
+
+    categoria_id = filtri.get("categoria_id")
+    if categoria_id:
+        query = query.filter(Product.categoria_id == to_int(categoria_id))
+
+    prodotto_text = (filtri.get("prodotto") or "").strip()
+    if prodotto_text:
+        query = query.filter(Product.nome.ilike(f"%{prodotto_text}%"))
+
+    return query

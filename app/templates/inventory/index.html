@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Magazzino | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Magazzino</h2>
+  <p>Monitoraggio giacenze, stati disponibilita e alert scorte.</p>
+</section>
+
+<div class="panel-card mb-3">
+  <form method="get" class="row g-2">
+    <div class="col-md-3">
+      <select name="categoria_id" class="form-select">
+        <option value="">Categoria</option>
+        {% for c in categorie %}
+          <option value="{{ c.id }}" {% if filtri.get('categoria_id') == (c.id|string) %}selected{% endif %}>{{ c.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select name="marca_id" class="form-select">
+        <option value="">Marca</option>
+        {% for m in marche %}
+          <option value="{{ m.id }}" {% if filtri.get('marca_id') == (m.id|string) %}selected{% endif %}>{{ m.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <select name="compatibilita_id" class="form-select">
+        <option value="">Compatibilita</option>
+        {% for comp in compatibilita %}
+          <option value="{{ comp.id }}" {% if filtri.get('compatibilita_id') == (comp.id|string) %}selected{% endif %}>{{ comp.nome }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3 d-grid">
+      <button class="btn btn-outline-light">Filtra</button>
+    </div>
+  </form>
+</div>
+
+{% if sotto_scorta %}
+  <div class="alert alert-warning">
+    <strong>Attenzione:</strong> {{ sotto_scorta|length }} prodotti sotto scorta minima.
+  </div>
+{% endif %}
+
+<div class="panel-card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>Prodotto</th>
+          <th>Categoria</th>
+          <th>Marca</th>
+          <th>Compatibilita</th>
+          <th>Disponibile</th>
+          <th>Scorta minima</th>
+          <th>Stato</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in prodotti %}
+          <tr>
+            <td>{{ p.nome }}</td>
+            <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
+            <td>{{ p.brand.nome if p.brand else '-' }}</td>
+            <td>{{ p.compatibility.nome if p.compatibility else "-" }}</td>
+            <td>{{ p.quantita_disponibile }}</td>
+            <td>{{ p.quantita_minima_alert }}</td>
+            <td>
+              {% if p.stato_disponibilita == 'esaurito' %}
+                <span class="badge bg-danger">Esaurito</span>
+              {% elif p.stato_disponibilita == 'quasi esaurito' %}
+                <span class="badge bg-warning text-dark">Quasi esaurito</span>
+              {% else %}
+                <span class="badge bg-success">Disponibile</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

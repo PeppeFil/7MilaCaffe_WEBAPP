@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Movimenti | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>Movimenti di Magazzino</h2>
+  <p>Storico movimenti carico/scarico e rettifiche inventariali.</p>
+</section>
+
+{% if current_user.has_role('Admin') %}
+<div class="panel-card mb-3">
+  <h5>Nuovo movimento manuale</h5>
+  <form method="post" class="row g-2">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-3">
+      <select name="prodotto_id" class="form-select" required>
+        <option value="">Prodotto</option>
+        {% for p in prodotti %}
+          <option value="{{ p.id }}">{{ p.nome }} ({{ p.quantita_disponibile }})</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2">
+      <select name="tipo_movimento" class="form-select" required>
+        <option value="">Tipo</option>
+        {% for t in tipi_movimento %}
+          <option value="{{ t }}">{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-1">
+      <input type="number" name="quantita" class="form-control" min="-9999" max="9999" required placeholder="Qta">
+    </div>
+    <div class="col-md-2">
+      <input type="text" name="motivo" class="form-control" placeholder="Motivo">
+    </div>
+    <div class="col-md-2">
+      <input type="number" step="0.01" min="0" name="costo_unitario" class="form-control" placeholder="Costo unitario">
+    </div>
+    <div class="col-md-2">
+      <button class="btn btn-coffee w-100">Registra</button>
+    </div>
+    <div class="col-12">
+      <input type="text" name="note" class="form-control" placeholder="Note">
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="panel-card mb-3">
+  <form method="get" class="row g-2">
+    <div class="col-md-2">
+      <select name="tipo" class="form-select">
+        <option value="">Tipo</option>
+        {% for t in tipi_movimento %}
+          <option value="{{ t }}" {% if filtri.get('tipo') == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-3">
+      <input type="text" class="form-control" name="prodotto" placeholder="Prodotto" value="{{ filtri.get('prodotto','') }}">
+    </div>
+    <div class="col-md-2 d-grid">
+      <button class="btn btn-outline-light">Filtra</button>
+    </div>
+  </form>
+</div>
+
+<div class="panel-card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Data/Ora</th>
+          <th>Tipo</th>
+          <th>Prodotto</th>
+          <th>Delta</th>
+          <th>Motivo</th>
+          <th>Riferimento</th>
+          <th>Operatore</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in movimenti %}
+          <tr>
+            <td>{{ m.id }}</td>
+            <td>{{ m.data_ora.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>{{ m.tipo_movimento }}</td>
+            <td>{{ m.prodotto.nome if m.prodotto else '-' }}</td>
+            <td>
+              <span class="badge {% if m.quantita > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                {{ m.quantita }}
+              </span>
+            </td>
+            <td>{{ m.motivo or '-' }}</td>
+            <td>{{ m.riferimento_entita or '-' }}</td>
+            <td>{{ m.operatore.username if m.operatore else '-' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
