@@ -15,6 +15,7 @@ services:
       - "traefik.http.routers.7milacaffe.tls=true"
       - "traefik.http.routers.7milacaffe.tls.certresolver=letsencrypt"
       - "traefik.http.services.7milacaffe.loadbalancer.server.port=8000"
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test:
         - CMD
@@ -25,3 +26,10 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
+
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    restart: unless-stopped
+    command: --label-enable --interval 60 --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

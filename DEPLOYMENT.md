@@ -96,6 +96,10 @@ git push origin main
 
 GitHub Actions eseguirà i test, creerà l'immagine e aggiornerà la VPS.
 
+La VPS esegue Watchtower: ogni minuto controlla l'immagine `latest` pubblicata da
+GitHub e ricrea automaticamente il container dell'app. All'avvio il container
+applica le migrazioni del database prima di avviare Flask.
+
 Per cambiare il database, crea una migrazione e committala insieme al codice:
 
 ```bash
