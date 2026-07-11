@@ -64,6 +64,7 @@ jobs:
             echo "Deploy saltato: configura i secret VPS_* prima di attivarlo."
           fi
       - name: Configure SSH
+        if: ${{ steps.deployment-config.outputs.enabled == 'true' }}
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
@@ -74,6 +75,7 @@ jobs:
           printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
       - name: Apply migrations and restart the application
+        if: ${{ steps.deployment-config.outputs.enabled == 'true' }}
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
