@@ -45,10 +45,24 @@ jobs:
 
   deploy:
     needs: publish
-    if: ${{ secrets.VPS_HOST != '' && secrets.VPS_USER != '' && secrets.VPS_SSH_PRIVATE_KEY != '' && secrets.VPS_SSH_KNOWN_HOSTS != '' && secrets.VPS_APP_ENV != '' }}
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - id: deployment-config
+        name: Check deployment configuration
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          VPS_SSH_KNOWN_HOSTS: ${{ secrets.VPS_SSH_KNOWN_HOSTS }}
+          VPS_APP_ENV: ${{ secrets.VPS_APP_ENV }}
+        run: |
+          if [ -n "$VPS_HOST" ] && [ -n "$VPS_USER" ] && [ -n "$VPS_SSH_PRIVATE_KEY" ] && [ -n "$VPS_SSH_KNOWN_HOSTS" ] && [ -n "$VPS_APP_ENV" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Deploy saltato: configura i secret VPS_* prima di attivarlo."
+          fi
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
