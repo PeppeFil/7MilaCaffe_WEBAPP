@@ -8,8 +8,13 @@ services:
     environment:
       FLASK_CONFIG: production
     restart: unless-stopped
-    expose:
-      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.7milacaffe.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.7milacaffe.entrypoints=websecure"
+      - "traefik.http.routers.7milacaffe.tls=true"
+      - "traefik.http.routers.7milacaffe.tls.certresolver=letsencrypt"
+      - "traefik.http.services.7milacaffe.loadbalancer.server.port=8000"
     healthcheck:
       test:
         - CMD
@@ -20,23 +25,3 @@ services:
       timeout: 5s
       start_period: 15s
       retries: 3
-
-  caddy:
-    image: caddy:2.10.2-alpine
-    env_file:
-      - .env
-    restart: unless-stopped
-    depends_on:
-      app:
-        condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-
-volumes:
-  caddy_data:
-  caddy_config:

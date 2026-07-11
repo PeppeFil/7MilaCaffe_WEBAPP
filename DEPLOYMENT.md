@@ -52,8 +52,8 @@ Nel repository GitHub, in **Settings → Secrets and variables → Actions**, cr
 | `VPS_APP_ENV` | Contenuto completo del file `.env`, partendo da `.env.example` e con valori reali |
 
 Il workflow salta deliberatamente il deploy finché i segreti obbligatori non sono
-presenti. Ad ogni deploy copia automaticamente `docker-compose.yml`, `Caddyfile` e
-il contenuto protetto di `VPS_APP_ENV` nella cartella `~/7milacaffe` dell'utente VPS.
+presenti. Ad ogni deploy copia automaticamente `docker-compose.yml` e il contenuto
+protetto di `VPS_APP_ENV` nella cartella `~/7milacaffe` dell'utente VPS.
 
 Nel segreto `VPS_APP_ENV`, usa i valori di `.env.example`. Per il primo deploy lascia
 le tre variabili `ADMIN_*`; il comando di inizializzazione crea l'amministratore una
@@ -65,7 +65,9 @@ sola volta. Dopo il primo accesso, rimuovi almeno `ADMIN_PASSWORD` dal segreto.
    su `main`.
 2. Controlla i log del job `deploy`: esegue `flask db upgrade`, crea il primo admin
    solo se non ne esiste uno, e ricrea i container.
-3. Apri `https://DOMINIO/healthz`: deve rispondere `{ "status": "ok" }`.
+3. Traefik, già fornito dal template Docker Hostinger, ottiene automaticamente il
+   certificato HTTPS. Apri `https://DOMINIO/healthz`: deve rispondere
+   `{ "status": "ok" }`.
 4. Apri `https://DOMINIO/login`, accedi con l'amministratore iniziale, poi rimuovi
    `ADMIN_PASSWORD` dal file `.env` della VPS.
 5. Esegui una vendita di prova e verifica su Supabase che dati e tabelle siano stati
