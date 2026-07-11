@@ -1,0 +1,8 @@
+[Unit]
+Description=Check and install new 7MilaCaffe container image
+Wants=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/root/7milacaffe/update-app.sh

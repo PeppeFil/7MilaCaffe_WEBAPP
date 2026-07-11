@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodically update 7MilaCaffe from GitHub Container Registry
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+Persistent=true
+
+[Install]
+WantedBy=timers.target
