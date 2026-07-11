@@ -1,3 +1,4 @@
+.git/
 .venv/
 __pycache__/
 *.py[cod]
@@ -6,3 +7,6 @@ pytest-cache-files-*/
 app.db
 *.sqlite3
 .env
+tests/
+seed/
+README.md

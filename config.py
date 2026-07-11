@@ -8,6 +8,9 @@ class BaseConfig:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     ITEMS_PER_PAGE = 25
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
 
 class DevelopmentConfig(BaseConfig):
@@ -24,8 +27,14 @@ class TestingConfig(BaseConfig):
 
 
 class ProductionConfig(BaseConfig):
-    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL", "sqlite:///production.db")
+    SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URL")
     DEBUG = False
+    SESSION_COOKIE_SECURE = True
+    PREFERRED_URL_SCHEME = "https"
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": 1800,
+    }
 
 
 config_by_name = {

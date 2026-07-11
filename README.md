@@ -183,6 +183,11 @@ Copertura minima inclusa:
 - annullamento vendita con ripristino stock
 - blocco vendita con stock insufficiente
 
+## Pubblicazione
+
+Per eseguire l'app su una VPS Hostinger con Docker, Supabase PostgreSQL, HTTPS e
+deploy automatico da GitHub Actions, segui [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## Note evolutive consigliate
 - integrazione scanner barcode reale
 - gestione IVA e fiscalità per ricevuta fiscale

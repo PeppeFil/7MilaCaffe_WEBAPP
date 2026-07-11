@@ -1,6 +1,7 @@
 import os
 
 from flask import Flask, abort, redirect, request, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import config_by_name
 
@@ -13,7 +14,15 @@ def create_app(config_name: str | None = None) -> Flask:
     cfg_name = config_name or os.getenv("FLASK_CONFIG", "development")
     app.config.from_object(config_by_name.get(cfg_name, config_by_name["development"]))
 
+    if cfg_name == "production":
+        if app.config["SECRET_KEY"] == "dev-secret-change-me":
+            raise RuntimeError("SECRET_KEY deve essere impostata in produzione.")
+        if not app.config["SQLALCHEMY_DATABASE_URI"]:
+            raise RuntimeError("DATABASE_URL deve essere impostata in produzione.")
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
     _init_extensions(app)
+    _register_commands(app)
     _register_blueprints(app)
     _register_routes(app)
 
@@ -23,7 +32,7 @@ def create_app(config_name: str | None = None) -> Flask:
 def _init_extensions(app: Flask) -> None:
     db.init_app(app)
     login_manager.init_app(app)
-    migrate.init_app(app, db)
+    migrate.init_app(app, db, directory="alembic_migrations")
 
     login_manager.login_view = "auth.login"
     login_manager.login_message_category = "warning"
@@ -44,6 +53,12 @@ def _init_extensions(app: Flask) -> None:
     @app.context_processor
     def inject_security_helpers():
         return {"csrf_token": get_csrf_token}
+
+
+def _register_commands(app: Flask) -> None:
+    from .cli import register_commands
+
+    register_commands(app)
 
 
 def _register_blueprints(app: Flask) -> None:
@@ -72,3 +87,7 @@ def _register_routes(app: Flask) -> None:
     @app.route("/")
     def home():
         return redirect(url_for("dashboard.index"))
+
+    @app.get("/healthz")
+    def healthcheck():
+        return {"status": "ok"}, 200
