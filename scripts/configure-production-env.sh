@@ -34,6 +34,23 @@ if [[ "${ADMIN_PASSWORD}" != "${ADMIN_PASSWORD_CONFIRM}" ]]; then
   exit 1
 fi
 
+case "${DATABASE_URL}" in
+  postgres://*)
+    DATABASE_URL="postgresql+psycopg://${DATABASE_URL#postgres://}"
+    ;;
+  postgresql://*)
+    DATABASE_URL="postgresql+psycopg://${DATABASE_URL#postgresql://}"
+    ;;
+esac
+
+if [[ "${DATABASE_URL}" != *"sslmode="* ]]; then
+  if [[ "${DATABASE_URL}" == *"?"* ]]; then
+    DATABASE_URL="${DATABASE_URL}&sslmode=require"
+  else
+    DATABASE_URL="${DATABASE_URL}?sslmode=require"
+  fi
+fi
+
 SECRET_KEY="$(openssl rand -base64 48 | tr -d '\n')"
 
 umask 077
