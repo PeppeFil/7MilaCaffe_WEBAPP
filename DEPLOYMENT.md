@@ -59,6 +59,17 @@ Nel segreto `VPS_APP_ENV`, usa i valori di `.env.example`. Per il primo deploy l
 le tre variabili `ADMIN_*`; il comando di inizializzazione crea l'amministratore una
 sola volta. Dopo il primo accesso, rimuovi almeno `ADMIN_PASSWORD` dal segreto.
 
+In alternativa, per il primo deploy manuale puoi copiare
+`scripts/configure-production-env.sh` sulla VPS ed eseguire:
+
+```bash
+cd ~/7milacaffe
+bash configure-production-env.sh NOME_DOMINIO
+```
+
+Il comando chiede localmente la stringa Supabase e la password dell'amministratore,
+senza inviarle al repository.
+
 ## 5. Primo deploy e verifiche
 
 1. Esegui il workflow **Test, publish and deploy** su GitHub Actions oppure fai push
