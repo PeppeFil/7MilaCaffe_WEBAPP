@@ -4,7 +4,7 @@ from tests.helpers import get_csrf_token, login
 def test_login_success(client):
     response = login(client, "admin", "admin123")
     assert response.status_code == 200
-    assert b"Dashboard" in response.data
+    assert b"Cassa" in response.data
 
 
 def test_operator_forbidden_on_admin_route(client):
@@ -23,7 +23,7 @@ def test_login_ignores_external_next_redirect(client):
     )
 
     assert response.status_code == 302
-    assert response.headers["Location"].endswith("/dashboard")
+    assert response.headers["Location"].endswith("/cassa")
 
 
 def test_login_requires_csrf_token(client):
@@ -42,7 +42,7 @@ def test_logout_requires_post(client):
     get_response = client.get("/logout", follow_redirects=False)
     post_response = client.post(
         "/logout",
-        data={"csrf_token": get_csrf_token(client, "/dashboard")},
+        data={"csrf_token": get_csrf_token(client, "/cassa")},
         follow_redirects=False,
     )
 

@@ -11,7 +11,7 @@ auth_bp = Blueprint("auth", __name__)
 @auth_bp.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("dashboard.index"))
+        return redirect(url_for("cash.cassa"))
 
     if request.method == "POST":
         username = (request.form.get("username") or "").strip()
@@ -23,7 +23,7 @@ def login():
             next_page = request.args.get("next")
             if not is_safe_redirect_target(next_page, request.host_url):
                 next_page = None
-            return redirect(next_page or url_for("dashboard.index"))
+            return redirect(next_page or url_for("cash.cassa"))
 
         flash("Credenziali non valide.", "danger")
 

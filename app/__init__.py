@@ -86,7 +86,7 @@ def _register_blueprints(app: Flask) -> None:
 def _register_routes(app: Flask) -> None:
     @app.route("/")
     def home():
-        return redirect(url_for("dashboard.index"))
+        return redirect(url_for("cash.cassa"))
 
     @app.get("/healthz")
     def healthcheck():

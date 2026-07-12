@@ -22,11 +22,11 @@
             </button>
           </div>
           <nav class="nav flex-column">
-            <a class="nav-link {% if request.path.startswith('/dashboard') %}active{% endif %}" href="{{ url_for('dashboard.index') }}" title="Dashboard">
-              <i class="bi bi-grid-1x2-fill nav-icon"></i><span class="nav-text">Dashboard</span>
-            </a>
             <a class="nav-link {% if request.path.startswith('/cassa') %}active{% endif %}" href="{{ url_for('cash.cassa') }}" title="Cassa">
               <i class="bi bi-cash-coin nav-icon"></i><span class="nav-text">Cassa</span>
+            </a>
+            <a class="nav-link {% if request.path.startswith('/dashboard') %}active{% endif %}" href="{{ url_for('dashboard.index') }}" title="Dashboard">
+              <i class="bi bi-grid-1x2-fill nav-icon"></i><span class="nav-text">Dashboard</span>
             </a>
             <a class="nav-link {% if request.path.startswith('/prodotti') %}active{% endif %}" href="{{ url_for('products.index') }}" title="Prodotti">
               <i class="bi bi-box-seam nav-icon"></i><span class="nav-text">Prodotti</span>

@@ -15,6 +15,50 @@ IMG_DOLCE_GUSTO = "https://www.zicaffe.com/361-large_default/gustosa-dolce-gusto
 IMG_MODO_MIO = "https://www.zicaffe.com/364-large_default/capsula-gustosa-a-modo-mio.jpg"
 IMG_DON_CARLO = "https://www.galloenrico.com/shop/78-large_default/capsula-doncarlo-100-pz-nera.jpg"
 
+# Immagini della confezione realmente associata al codice articolo.  I primi
+# undici URL sono le foto frontali individuate tramite gli EAN corrispondenti;
+# per Lollo/Golosita' e Zicaffe sono immagini dei rispettivi cataloghi online.
+IMMAGINI_PRODOTTI = {
+    "8034028330636": "https://images.openfoodfacts.org/images/products/803/402/833/0636/front_it.3.400.jpg",
+    "8034028336706": "https://images.openfoodfacts.org/images/products/803/402/833/6706/front_it.3.400.jpg",
+    "8034028330476": "https://images.openfoodfacts.org/images/products/803/402/833/0476/front_it.13.400.jpg",
+    "8034028330643": "https://images.openfoodfacts.org/images/products/803/402/833/0643/front_it.5.400.jpg",
+    "8034028330674": "https://images.openfoodfacts.org/images/products/803/402/833/0674/front_fr.10.400.jpg",
+    "8034028330698": "https://images.openfoodfacts.org/images/products/803/402/833/0698/front_it.3.400.jpg",
+    "8034028330483": "https://images.openfoodfacts.org/images/products/803/402/833/0483/front_fr.3.400.jpg",
+    "8034028338014": "https://images.openfoodfacts.org/images/products/803/402/833/8014/front_it.3.400.jpg",
+    "8034028330780": "https://images.openfoodfacts.org/images/products/803/402/833/0780/front_it.16.400.jpg",
+    "8034028330827": "https://images.openfoodfacts.org/images/products/803/402/833/0827/front_it.3.400.jpg",
+    "8034028330506": "https://images.openfoodfacts.org/images/products/803/402/833/0506/front_it.3.400.jpg",
+    "8055176432317": "https://www.cialdeitalia.it/images/prodotti/BOR-NDG-BLU-0050-01.jpg",
+    "8034028333880": "https://images.openfoodfacts.org/images/products/803/402/833/3880/front_it.3.400.jpg",
+    "032415800016": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_amm_amazon_2026_copertina_3.jpg",
+    "032415800017": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_amm_amazon_2026_copertina_4.jpg",
+    "032415800018": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_amm_amazon_2026_copertina_5.jpg",
+    "032416202882": "https://lollocaffeonline.it/media/catalog/product/l/o/lollo-dolce-gusto_1_1.jpg",
+    "032415900030": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_nespresso_amazon_2026_2.jpg",
+    "032415900032": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_nespresso_amazon_2026_4.jpg",
+    "032315200058": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_cialda_amazon_2026_10.jpg",
+    "032315200057": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_cialda_amazon_2026_9.jpg",
+    "032315200059": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_cialda_amazon_2026.jpg",
+    "042720306208": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_chococup.png",
+    "042720306207": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_polvere_di_stelle.png",
+    "042720306206": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_coccoloso_1.png",
+    "042720306209": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_caramelloso.png",
+    "042720306210": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_nocciocao.png",
+    "042720306211": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_cioccolatoso.png",
+    "042720306212": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_te_a_limone_3.png",
+    "042720306213": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_lollorzo.png",
+    "042720306214": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_lollocappuccino.png",
+    "042720306215": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_lolloginseng.png",
+    "8029804016927": "https://ditrapani.it/cdn/shop/files/FullSizeRender_1a319295-ecc5-48c6-84a1-21fda46566e6.jpg?v=1757769834",
+    "8029804016965": "https://ditrapani.it/cdn/shop/files/FullSizeRender_2e701de5-7802-469b-b88a-0b980c1c3db2.jpg?v=1757776824",
+    "8029804009776": "https://coffeeshopitalia.com/cdn/shop/files/Screenshot_2023-08-27_alle_11.31.29.png?height=628&pad_color=ffffff&v=1693128703&width=1200",
+    "DOG48G": "https://www.zicaffe.com/361-large_default/capsula-gustosa-dolce-gusto.jpg",
+    "CLA50G": "https://www.zicaffe.com/364-large_default/capsula-gustosa-a-modo-mio.jpg",
+    "CNE50G": "https://www.zicaffe.com/358-large_default/capsula-gustosa-nespresso.jpg",
+}
+
 # Prezzi di vendita concordati con il negozio. Vengono usati al primo import
 # e mantengono coerente un eventuale nuovo database con la produzione.
 PREZZI_VENDITA_MANUALI = {
@@ -66,7 +110,7 @@ def _product(
         "formato": formato,
         "costo": Decimal(costo),
         "quantita": quantita,
-        "image": image,
+        "image": IMMAGINI_PRODOTTI.get(barcode, image),
     }
 
 
@@ -98,16 +142,16 @@ CATALOGO_REALE = [
     _product("032315200058", "Cialde Lollo Oro", "Caffe Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "15.26", 22, IMG_CIALDE),
     _product("032315200057", "Cialde Lollo Classico", "Caffe Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "14.28", 33, IMG_CIALDE),
     _product("032315200059", "Cialde Lollo Dek", "Caffe Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "16.68", 20, IMG_CIALDE),
-    _product("042720306208", "Chococap Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
+    _product("042720306208", "Chococup Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
     _product("042720306207", "Polvere di Stelle Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
     _product("042720306206", "Coccoloso Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
     _product("042720306209", "Caramelloso Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
-    _product("042720306210", "Cioccolato e Nocciola Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
-    _product("042720306211", "Cioccolato Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 24, IMG_DOLCE_GUSTO),
-    _product("042720306212", "Te al Limone Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.29", 24, IMG_DOLCE_GUSTO),
-    _product("042720306213", "Orzo Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.29", 16, IMG_DOLCE_GUSTO),
-    _product("042720306214", "Cappuccino Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
-    _product("042720306215", "Ginseng Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 24, IMG_DOLCE_GUSTO),
+    _product("042720306210", "Nocciocao Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
+    _product("042720306211", "Cioccolatoso Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 24, IMG_DOLCE_GUSTO),
+    _product("042720306212", "Tè al Limone Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.29", 24, IMG_DOLCE_GUSTO),
+    _product("042720306213", "Lollorzo Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.29", 16, IMG_DOLCE_GUSTO),
+    _product("042720306214", "LolloCappuccino Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
+    _product("042720306215", "LolloGinseng Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 24, IMG_DOLCE_GUSTO),
     _product("032423401923", "Passionesse Lollo Nera", "Caffe Lollo", "Dical SRL", "Capsule", "Esse Caffe", "100 capsule", "10.43", 10, IMG_CAPSULE),
     # Nutis / Caffe Barbaro - fattura 10/06/2026
     _product("8029804003859", "Caffe Barbaro DG Blu", "Caffe Barbaro", "Nutis SRL", "Capsule", "Dolce Gusto", "100 capsule", "15.61", 70, IMG_DOLCE_GUSTO),
@@ -136,7 +180,12 @@ def sync_catalogo_reale() -> tuple[int, int]:
     creati = 0
     presenti = 0
     for row in CATALOGO_REALE:
-        if Product.query.filter_by(sku_barcode=row["barcode"]).first():
+        esistente = Product.query.filter_by(sku_barcode=row["barcode"]).first()
+        if esistente:
+            # Manteniamo invariati prezzi e giacenze, ma correggiamo le schede
+            # importate in precedenza con foto o descrizioni troppo generiche.
+            esistente.nome = row["nome"]
+            esistente.immagine_url = row["image"]
             presenti += 1
             continue
 
