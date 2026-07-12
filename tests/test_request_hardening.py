@@ -45,3 +45,22 @@ def test_analysis_handles_invalid_period_dates(client):
 
     assert response.status_code == 200
     assert b"Intervallo date non valido." in response.data
+
+
+def test_analysis_page_renders_with_postgres_safe_aggregations(client):
+    login(client, "admin", "admin123")
+
+    response = client.get("/analisi?periodo=ultimi_7")
+
+    assert response.status_code == 200
+    assert b"Analisi Vendite" in response.data
+
+
+def test_cash_page_uses_simple_product_tiles(client):
+    login(client, "operatore", "operator123")
+
+    response = client.get("/cassa")
+
+    assert response.status_code == 200
+    assert b"Tocca un prodotto per iniziare." in response.data
+    assert b"Completa vendita" in response.data

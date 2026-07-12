@@ -48,6 +48,10 @@
       <label class="form-label">SKU / Barcode</label>
       <input type="text" class="form-control" name="sku_barcode" value="{{ prodotto.sku_barcode if prodotto else '' }}">
     </div>
+    <div class="col-md-8">
+      <label class="form-label">Immagine prodotto (URL)</label>
+      <input type="text" class="form-control" name="immagine_url" value="{{ prodotto.immagine_url if prodotto else '' }}" placeholder="https://... oppure /static/img/...">
+    </div>
     <div class="col-md-3">
       <label class="form-label">Prezzo acquisto *</label>
       <input type="number" min="0" step="0.01" class="form-control" name="prezzo_acquisto" required value="{{ prodotto.prezzo_acquisto if prodotto else '0.00' }}">

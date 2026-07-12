@@ -26,6 +26,7 @@ class Product(db.Model):
     quantita_disponibile = db.Column(db.Integer, nullable=False, default=0, index=True)
     quantita_minima_alert = db.Column(db.Integer, nullable=False, default=0)
     sku_barcode = db.Column(db.String(80), unique=True, index=True)
+    immagine_url = db.Column(db.String(255))
     fornitore_id = db.Column(db.Integer, db.ForeignKey("suppliers.id"), index=True)
     note = db.Column(db.Text)
     attivo = db.Column(db.Boolean, nullable=False, default=True, index=True)

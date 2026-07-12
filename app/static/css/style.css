@@ -212,27 +212,90 @@ body.coffee-app {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.8rem;
-  max-height: 66vh;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 0.9rem;
+  max-height: 70vh;
   overflow: auto;
+  padding: 0.1rem;
 }
 
-.product-card {
+.product-tile {
+  appearance: none;
+  display: flex;
+  width: 100%;
+  min-height: 272px;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
   background: rgba(255, 255, 255, 0.95);
   color: #2f1f17;
-  border-radius: 12px;
-  padding: 0.75rem;
+  border-radius: 14px;
+  padding: 0;
   border: 1px solid #dec4ad;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
 }
 
-.product-card h6 {
-  margin-bottom: 0.25rem;
+.product-tile:hover,
+.product-tile:focus-visible {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(29, 17, 11, 0.24);
+  border-color: var(--coffee-500);
+  outline: none;
 }
 
-.product-card .meta {
-  font-size: 0.8rem;
-  color: #5c4d42;
+.product-image,
+.product-image-fallback {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  background: linear-gradient(135deg, #f3e6d6, #d4b69c);
+}
+
+.product-image-fallback {
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+}
+
+.product-tile-name,
+.product-tile-meta,
+.product-tile-price,
+.product-tile-stock {
+  padding-inline: 0.75rem;
+}
+
+.product-tile-name {
+  margin-top: 0.65rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.product-tile-meta,
+.product-tile-stock {
+  color: #69594e;
+  font-size: 0.77rem;
+}
+
+.product-tile-meta { margin-top: 0.24rem; }
+.product-tile-stock { margin: 0.1rem 0 0.6rem; }
+.product-tile-price { color: var(--coffee-800); font-size: 1.12rem; font-weight: 700; margin-top: auto; }
+
+.cash-filters { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 0.65rem; }
+.cart-panel { position: sticky; top: 1rem; }
+.cart-lines { max-height: 43vh; overflow-y: auto; }
+.cart-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,.13); padding: .55rem 0; }
+.cart-line strong { font-size: .9rem; }
+.cart-line small { display: block; color: #cfbba8; }
+.quantity-control { display: flex; align-items: center; gap: .25rem; }
+.quantity-control button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid #c9a98d; background: #fff; color: var(--coffee-800); font-weight: 700; }
+.quantity-control span { min-width: 20px; text-align: center; }
+.cart-total { display: flex; align-items: baseline; justify-content: space-between; font-size: 1.1rem; }
+.cart-total strong { font-family: "Fraunces", serif; font-size: 1.75rem; }
+.payment-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.payment-choice { min-height: 54px; border: 1px solid rgba(255,255,255,.45); border-radius: 10px; color: #fff; background: transparent; font-weight: 700; }
+.payment-choice.active { border-color: #e9c9aa; background: var(--coffee-700); }
+.cash-options summary { cursor: pointer; color: #e9c9aa; }
 }
 
 .login-wrapper {
@@ -289,4 +352,7 @@ body.coffee-app {
     padding-left: 0.7rem;
     padding-right: 0.7rem;
   }
+
+  .cash-filters { grid-template-columns: 1fr; }
+  .cart-panel { position: static; }
 }

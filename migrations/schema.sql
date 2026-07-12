@@ -124,6 +124,7 @@ CREATE TABLE products (
     quantita_disponibile INTEGER NOT NULL DEFAULT 0,
     quantita_minima_alert INTEGER NOT NULL DEFAULT 0,
     sku_barcode VARCHAR(80) UNIQUE,
+    immagine_url VARCHAR(255),
     fornitore_id INTEGER,
     note TEXT,
     attivo BOOLEAN NOT NULL DEFAULT 1,

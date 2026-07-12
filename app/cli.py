@@ -6,10 +6,12 @@ from flask.cli import with_appcontext
 from .extensions import db
 from .models import Role, User
 from .models.constants import RUOLO_ADMIN
+from .services.catalog_service import sync_catalogo_reale
 
 
 def register_commands(app) -> None:
     app.cli.add_command(create_admin)
+    app.cli.add_command(import_catalogo_reale)
 
 
 @click.command("create-admin")
@@ -56,3 +58,11 @@ def create_admin() -> None:
     db.session.add(admin)
     db.session.commit()
     click.echo(f"Amministratore '{username}' creato.")
+
+
+@click.command("import-catalogo-reale")
+@with_appcontext
+def import_catalogo_reale() -> None:
+    """Importa una sola volta il catalogo iniziale dai listini forniti."""
+    creati, presenti = sync_catalogo_reale()
+    click.echo(f"Catalogo reale: {creati} prodotti creati, {presenti} gia presenti.")

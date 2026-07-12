@@ -18,10 +18,12 @@ def _serialize_product(product: Product) -> dict:
         "id": product.id,
         "nome": product.nome,
         "marca": product.brand.nome if product.brand else "",
+        "formato_confezione": product.formato_confezione or "",
         "prezzo_vendita": float(product.prezzo_vendita),
         "quantita_disponibile": product.quantita_disponibile,
         "categoria": product.categoria.nome if product.categoria else "",
         "sku_barcode": product.sku_barcode or "",
+        "immagine_url": product.immagine_url or "",
     }
 
 

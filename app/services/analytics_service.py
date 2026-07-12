@@ -1,4 +1,5 @@
-from datetime import datetime, timedelta
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import case, func
@@ -70,7 +71,7 @@ def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
     media_scontrino = vendite_range.with_entities(func.coalesce(func.avg(Sale.totale_netto), 0)).scalar()
     count_vendite = vendite_range.count()
 
-    vendite_giornaliere = (
+    righe_giornaliere = (
         vendite_range.with_entities(
             func.date(Sale.data_ora).label("giorno"),
             func.sum(Sale.totale_netto).label("totale"),
@@ -79,25 +80,8 @@ def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
         .order_by(func.date(Sale.data_ora))
         .all()
     )
-
-    vendite_settimanali = (
-        vendite_range.with_entities(
-            func.strftime("%Y-W%W", Sale.data_ora).label("settimana"),
-            func.sum(Sale.totale_netto).label("totale"),
-        )
-        .group_by(func.strftime("%Y-W%W", Sale.data_ora))
-        .order_by(func.strftime("%Y-W%W", Sale.data_ora))
-        .all()
-    )
-
-    vendite_mensili = (
-        vendite_range.with_entities(
-            func.strftime("%Y-%m", Sale.data_ora).label("mese"),
-            func.sum(Sale.totale_netto).label("totale"),
-        )
-        .group_by(func.strftime("%Y-%m", Sale.data_ora))
-        .order_by(func.strftime("%Y-%m", Sale.data_ora))
-        .all()
+    vendite_giornaliere, vendite_settimanali, vendite_mensili = _periodi_da_giorni(
+        righe_giornaliere
     )
 
     fatturato_categoria = (
@@ -174,6 +158,35 @@ def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
         "low_prodotti": low_prodotti,
         "metodi_pagamento": pagamenti,
     }
+
+
+def _periodi_da_giorni(righe):
+    """Crea le serie temporali in Python per restare compatibili con SQLite e Postgres."""
+    giornaliero = []
+    settimanale = defaultdict(Decimal)
+    mensile = defaultdict(Decimal)
+
+    for riga in righe:
+        giorno = _to_date(riga.giorno)
+        totale = Decimal(str(riga.totale or 0))
+        giornaliero.append({"giorno": giorno.isoformat(), "totale": float(totale)})
+        anno_iso, settimana_iso, _ = giorno.isocalendar()
+        settimanale[f"{anno_iso}-W{settimana_iso:02d}"] += totale
+        mensile[f"{giorno.year}-{giorno.month:02d}"] += totale
+
+    return (
+        giornaliero,
+        [{"settimana": key, "totale": float(value)} for key, value in sorted(settimanale.items())],
+        [{"mese": key, "totale": float(value)} for key, value in sorted(mensile.items())],
+    )
+
+
+def _to_date(value) -> date:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
 
 
 def _trend_ultimi_sette_giorni():

@@ -84,6 +84,7 @@ def duplica_prodotto(prodotto: Product) -> Product:
         quantita_disponibile=prodotto.quantita_disponibile,
         quantita_minima_alert=prodotto.quantita_minima_alert,
         sku_barcode=None,
+        immagine_url=prodotto.immagine_url,
         fornitore_id=prodotto.fornitore_id,
         note=prodotto.note,
         attivo=True,
@@ -111,6 +112,7 @@ def esporta_prodotti_csv(prodotti) -> str:
             "quantita_disponibile",
             "quantita_minima_alert",
             "sku_barcode",
+            "immagine_url",
             "fornitore",
             "attivo",
         ]
@@ -131,6 +133,7 @@ def esporta_prodotti_csv(prodotti) -> str:
                 p.quantita_disponibile,
                 p.quantita_minima_alert,
                 p.sku_barcode or "",
+                p.immagine_url or "",
                 p.fornitore.nome if p.fornitore else "",
                 "1" if p.attivo else "0",
             ]
@@ -163,6 +166,7 @@ def importa_prodotti_csv(file_storage) -> tuple[int, int]:
             "quantita_disponibile": row.get("quantita_disponibile"),
             "quantita_minima_alert": row.get("quantita_minima_alert"),
             "sku_barcode": sku,
+            "immagine_url": row.get("immagine_url"),
             "fornitore_id": row.get("fornitore_id"),
             "note": row.get("note"),
             "attivo": row.get("attivo", "1"),
@@ -192,6 +196,7 @@ def _apply_product_data(prodotto: Product, data: dict) -> None:
     prodotto.quantita_disponibile = to_int(data.get("quantita_disponibile"))
     prodotto.quantita_minima_alert = to_int(data.get("quantita_minima_alert"))
     prodotto.sku_barcode = (data.get("sku_barcode") or "").strip() or None
+    prodotto.immagine_url = (data.get("immagine_url") or "").strip() or None
 
     if not prodotto.marca_id:
         raise ValueError("Marca obbligatoria.")
