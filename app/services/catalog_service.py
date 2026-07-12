@@ -15,6 +15,34 @@ IMG_DOLCE_GUSTO = "https://www.zicaffe.com/361-large_default/gustosa-dolce-gusto
 IMG_MODO_MIO = "https://www.zicaffe.com/364-large_default/capsula-gustosa-a-modo-mio.jpg"
 IMG_DON_CARLO = "https://www.galloenrico.com/shop/78-large_default/capsula-doncarlo-100-pz-nera.jpg"
 
+# Prezzi di vendita concordati con il negozio. Vengono usati al primo import
+# e mantengono coerente un eventuale nuovo database con la produzione.
+PREZZI_VENDITA_MANUALI = {
+    "8034028330674": Decimal("21.00"),  # Don Carlo Nera
+    "8034028330698": Decimal("22.00"),  # Don Carlo Red
+    "8034028330483": Decimal("23.00"),  # Don Carlo Blu
+    "8034028338014": Decimal("25.00"),  # Don Carlo Oro
+    "8034028330636": Decimal("21.00"),  # Respresso Nera
+    "8034028336706": Decimal("22.00"),  # Respresso Red
+    "8034028330476": Decimal("23.00"),  # Respresso Blu
+    "8034028330643": Decimal("25.00"),  # Respresso Oro
+    "8034028330780": Decimal("24.00"),  # Cialde Borbone Nera
+    "8034028330827": Decimal("26.00"),  # Cialde Borbone Red
+    "8034028330506": Decimal("28.00"),  # Cialde Borbone Blu
+    "032315200057": Decimal("24.00"),  # Cialde Lollo Classico
+    "032315200058": Decimal("27.00"),  # Cialde Lollo Oro
+    "032315200059": Decimal("27.00"),  # Cialde Lollo Dek
+    "032415800016": Decimal("20.00"),  # Passione Mito Classica
+    "032415800017": Decimal("22.00"),  # Passione Mito Oro
+    "032415800018": Decimal("22.00"),  # Passione Mito Dek
+    "032415900030": Decimal("20.00"),  # Passione Espresso Classica
+    "032415900032": Decimal("22.00"),  # Passione Espresso Dek
+    "8029804016927": Decimal("17.00"),  # Cialde Barbaro Nera
+    "8029804016965": Decimal("17.00"),  # Cialde Barbaro Rosa
+    "8029804009776": Decimal("19.00"),  # Barbaro A Modo Mio Rosa
+    "8029804003859": Decimal("24.00"),  # Barbaro Dolce Gusto Blu
+}
+
 
 def _product(
     barcode: str,
@@ -112,8 +140,11 @@ def sync_catalogo_reale() -> tuple[int, int]:
             presenti += 1
             continue
 
-        prezzo_vendita = (row["costo"] * Decimal("1.30")).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
+        prezzo_vendita = PREZZI_VENDITA_MANUALI.get(
+            row["barcode"],
+            (row["costo"] * Decimal("1.30")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
         )
         product = Product(
             nome=row["nome"],
