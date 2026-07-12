@@ -53,10 +53,14 @@ IMMAGINI_PRODOTTI = {
     "042720306215": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_lolloginseng.png",
     "8029804016927": "https://ditrapani.it/cdn/shop/files/FullSizeRender_1a319295-ecc5-48c6-84a1-21fda46566e6.jpg?v=1757769834",
     "8029804016965": "https://ditrapani.it/cdn/shop/files/FullSizeRender_2e701de5-7802-469b-b88a-0b980c1c3db2.jpg?v=1757776824",
+    "8029804003859": "https://ingrocaffe.it/images/prodotti/1520_1.jpg",
+    "8029804016941": "https://ingrocaffe.it/images/prodotti/1798_1.jpg",
+    "8029804010901": "https://ingrocaffe.it/images/prodotti/796_1.jpg",
     "8029804009776": "https://coffeeshopitalia.com/cdn/shop/files/Screenshot_2023-08-27_alle_11.31.29.png?height=628&pad_color=ffffff&v=1693128703&width=1200",
     "DOG48G": "https://www.zicaffe.com/361-large_default/capsula-gustosa-dolce-gusto.jpg",
     "CLA50G": "https://www.zicaffe.com/364-large_default/capsula-gustosa-a-modo-mio.jpg",
     "CNE50G": "https://www.zicaffe.com/358-large_default/capsula-gustosa-nespresso.jpg",
+    "CDG50": "https://www.kaffee.de/media/image/07/d3/50/1703_001.jpg",
 }
 
 # Prezzi di vendita concordati con il negozio. Vengono usati al primo import
