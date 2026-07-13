@@ -260,8 +260,13 @@ body.coffee-app {
 .product-image-fallback {
   width: 100%;
   height: 190px;
-  object-fit: cover;
   background: linear-gradient(135deg, #f3e6d6, #d4b69c);
+}
+
+.product-image {
+  object-fit: contain;
+  padding: 0.35rem;
+  background: #fff;
 }
 
 .product-image-fallback {

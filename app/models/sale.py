@@ -37,6 +37,6 @@ class Sale(db.Model):
     righe = db.relationship(
         "SaleItem",
         back_populates="vendita",
-        lazy="selectin",
+        lazy="select",
         cascade="all, delete-orphan",
     )

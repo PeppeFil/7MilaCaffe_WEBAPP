@@ -1,3 +1,7 @@
+from sqlalchemy import event
+
+from app.extensions import db
+from app.models import Product, StoreInventory, StoreLocation, User
 from tests.helpers import get_csrf_token, login
 
 
@@ -64,3 +68,47 @@ def test_cash_page_uses_simple_product_tiles(client):
     assert response.status_code == 200
     assert b"Tocca un prodotto per iniziare." in response.data
     assert b"Completa vendita" in response.data
+
+
+def test_cash_page_does_not_eager_load_unrelated_collections(app, client):
+    store = StoreLocation(
+        codice="test-store",
+        nome="Negozio Test",
+        indirizzo="Via Test 1",
+        cap="91100",
+        comune="Trapani",
+        provincia="TP",
+        ragione_sociale="Negozio Test SRL",
+        partita_iva="00000000000",
+        attivo=True,
+    )
+    db.session.add(store)
+    db.session.flush()
+
+    operatore = User.query.filter_by(username="operatore").first()
+    operatore.punto_vendita_predefinito_id = store.id
+    prodotto = Product.query.first()
+    db.session.add(
+        StoreInventory(
+            punto_vendita_id=store.id,
+            prodotto_id=prodotto.id,
+            quantita_disponibile=20,
+            quantita_minima_alert=5,
+        )
+    )
+    db.session.commit()
+
+    login(client, "operatore", "operator123")
+    statements = []
+
+    def count_statement(*_args):
+        statements.append(1)
+
+    event.listen(db.engine, "before_cursor_execute", count_statement)
+    try:
+        response = client.get("/cassa")
+    finally:
+        event.remove(db.engine, "before_cursor_execute", count_statement)
+
+    assert response.status_code == 200
+    assert len(statements) <= 8

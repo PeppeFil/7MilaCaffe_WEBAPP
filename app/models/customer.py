@@ -22,7 +22,7 @@ class Customer(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    vendite = db.relationship("Sale", back_populates="customer", lazy="selectin")
+    vendite = db.relationship("Sale", back_populates="customer", lazy="select")
 
     @property
     def display_name(self) -> str:

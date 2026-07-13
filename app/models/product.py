@@ -39,9 +39,9 @@ class Product(db.Model):
     brand = db.relationship("Brand", back_populates="prodotti", lazy="joined")
     compatibility = db.relationship("Compatibility", back_populates="prodotti", lazy="joined")
     fornitore = db.relationship("Supplier", back_populates="prodotti", lazy="joined")
-    righe_vendita = db.relationship("SaleItem", back_populates="prodotto", lazy="selectin")
+    righe_vendita = db.relationship("SaleItem", back_populates="prodotto", lazy="select")
     movimenti_magazzino = db.relationship(
-        "InventoryMovement", back_populates="prodotto", lazy="selectin"
+        "InventoryMovement", back_populates="prodotto", lazy="select"
     )
     giacenze_punti_vendita = db.relationship(
         "StoreInventory", back_populates="prodotto", lazy="noload", cascade="all, delete-orphan"

@@ -17,4 +17,4 @@ class Supplier(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    prodotti = db.relationship("Product", back_populates="fornitore", lazy="selectin")
+    prodotti = db.relationship("Product", back_populates="fornitore", lazy="select")

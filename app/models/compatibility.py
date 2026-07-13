@@ -14,4 +14,4 @@ class Compatibility(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    prodotti = db.relationship("Product", back_populates="compatibility", lazy="selectin")
+    prodotti = db.relationship("Product", back_populates="compatibility", lazy="select")

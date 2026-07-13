@@ -14,4 +14,4 @@ class Category(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    prodotti = db.relationship("Product", back_populates="categoria", lazy="selectin")
+    prodotti = db.relationship("Product", back_populates="categoria", lazy="select")

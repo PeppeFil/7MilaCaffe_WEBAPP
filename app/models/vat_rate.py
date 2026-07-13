@@ -18,4 +18,4 @@ class VatRate(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    vendite = db.relationship("Sale", back_populates="vat_rate", lazy="selectin")
+    vendite = db.relationship("Sale", back_populates="vat_rate", lazy="select")

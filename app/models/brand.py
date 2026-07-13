@@ -14,4 +14,4 @@ class Brand(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    prodotti = db.relationship("Product", back_populates="brand", lazy="selectin")
+    prodotti = db.relationship("Product", back_populates="brand", lazy="select")

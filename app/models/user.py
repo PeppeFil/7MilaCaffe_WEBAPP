@@ -30,11 +30,11 @@ class User(UserMixin, db.Model):
     punto_vendita_predefinito = db.relationship(
         "StoreLocation", back_populates="utenti_predefiniti", lazy="joined"
     )
-    vendite = db.relationship("Sale", back_populates="operatore", lazy="selectin")
+    vendite = db.relationship("Sale", back_populates="operatore", lazy="select")
     movimenti = db.relationship(
-        "InventoryMovement", back_populates="operatore", lazy="selectin"
+        "InventoryMovement", back_populates="operatore", lazy="select"
     )
-    activity_logs = db.relationship("ActivityLog", back_populates="utente", lazy="selectin")
+    activity_logs = db.relationship("ActivityLog", back_populates="utente", lazy="select")
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)

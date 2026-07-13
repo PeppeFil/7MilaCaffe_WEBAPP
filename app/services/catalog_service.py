@@ -15,35 +15,39 @@ IMG_DOLCE_GUSTO = "https://www.zicaffe.com/361-large_default/gustosa-dolce-gusto
 IMG_MODO_MIO = "https://www.zicaffe.com/364-large_default/capsula-gustosa-a-modo-mio.jpg"
 IMG_DON_CARLO = "https://www.galloenrico.com/shop/78-large_default/capsula-doncarlo-100-pz-nera.jpg"
 
-# Immagini della confezione realmente associata al codice articolo.  I primi
-# undici URL sono le foto frontali individuate tramite gli EAN corrispondenti;
-# per Lollo/Golosita' e Zicaffe sono immagini dei rispettivi cataloghi online.
+# Immagini locali verificate per i prodotti consegnati dal negozio. Il nome del
+# file coincide con il codice articolo, cosi l'associazione resta inequivocabile
+# e la cassa non dipende dalla velocita o disponibilita di siti esterni.
+def _local_product_image(barcode: str) -> str:
+    return f"/static/img/products/{barcode}.webp"
+
+
 IMMAGINI_PRODOTTI = {
-    "8034028330636": "https://images.openfoodfacts.org/images/products/803/402/833/0636/front_it.3.400.jpg",
-    "8034028336706": "https://images.openfoodfacts.org/images/products/803/402/833/6706/front_it.3.400.jpg",
-    "8034028330476": "https://images.openfoodfacts.org/images/products/803/402/833/0476/front_it.13.400.jpg",
-    "8034028330643": "https://images.openfoodfacts.org/images/products/803/402/833/0643/front_it.5.400.jpg",
-    "8034028330674": "https://images.openfoodfacts.org/images/products/803/402/833/0674/front_fr.10.400.jpg",
-    "8034028330698": "https://images.openfoodfacts.org/images/products/803/402/833/0698/front_it.3.400.jpg",
-    "8034028330483": "https://images.openfoodfacts.org/images/products/803/402/833/0483/front_fr.3.400.jpg",
-    "8034028338014": "https://images.openfoodfacts.org/images/products/803/402/833/8014/front_it.3.400.jpg",
-    "8034028330780": "https://images.openfoodfacts.org/images/products/803/402/833/0780/front_it.16.400.jpg",
-    "8034028330827": "https://images.openfoodfacts.org/images/products/803/402/833/0827/front_it.3.400.jpg",
-    "8034028330506": "https://images.openfoodfacts.org/images/products/803/402/833/0506/front_it.3.400.jpg",
-    "8055176432317": "https://www.cialdeitalia.it/images/prodotti/BOR-NDG-BLU-0050-01.jpg",
-    "8055176432348": "https://www.cialdeitalia.it/images/prodotti/BOR-NDG-ROS-0050-01.jpg",
-    "8055176432744": "https://www.espressotoscano.it/media/catalog/product/cache/1/image/9df78eab33525d08d6e5fb8d27136e95/i/m/immagine_2026-03-26_154458.png",
+    "8034028330636": _local_product_image("8034028330636"),
+    "8034028336706": _local_product_image("8034028336706"),
+    "8034028330476": _local_product_image("8034028330476"),
+    "8034028330643": _local_product_image("8034028330643"),
+    "8034028330674": _local_product_image("8034028330674"),
+    "8034028330698": _local_product_image("8034028330698"),
+    "8034028330483": _local_product_image("8034028330483"),
+    "8034028338014": _local_product_image("8034028338014"),
+    "8034028330780": _local_product_image("8034028330780"),
+    "8034028330827": _local_product_image("8034028330827"),
+    "8034028330506": _local_product_image("8034028330506"),
+    "8055176432317": _local_product_image("8055176432317"),
+    "8055176432348": _local_product_image("8055176432348"),
+    "8055176432744": _local_product_image("8055176432744"),
     "8055176432751": "https://www.espressotoscano.it/media/catalog/product/cache/1/image/9df78eab33525d08d6e5fb8d27136e95/i/m/immagine_2026-03-26_160631.png",
     "8034028333880": "https://images.openfoodfacts.org/images/products/803/402/833/3880/front_it.3.400.jpg",
-    "032415800016": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_amm_amazon_2026_copertina_3.jpg",
-    "032415800017": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_amm_amazon_2026_copertina_4.jpg",
-    "032415800018": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_amm_amazon_2026_copertina_5.jpg",
+    "032415800016": _local_product_image("032415800016"),
+    "032415800017": _local_product_image("032415800017"),
+    "032415800018": _local_product_image("032415800018"),
     "032416202882": "https://lollocaffeonline.it/media/catalog/product/l/o/lollo-dolce-gusto_1_1.jpg",
-    "032415900030": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_nespresso_amazon_2026_2.jpg",
-    "032415900032": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_nespresso_amazon_2026_4.jpg",
-    "032315200058": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_cialda_amazon_2026_10.jpg",
-    "032315200057": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_cialda_amazon_2026_9.jpg",
-    "032315200059": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_cialda_amazon_2026.jpg",
+    "032415900030": _local_product_image("032415900030"),
+    "032415900032": _local_product_image("032415900032"),
+    "032315200058": _local_product_image("032315200058"),
+    "032315200057": _local_product_image("032315200057"),
+    "032315200059": _local_product_image("032315200059"),
     "042720306208": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_chococup.png",
     "042720306207": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_polvere_di_stelle.png",
     "042720306206": "https://lollocaffeonline.it/media/catalog/product/m/o/mockup_golosite_dg_coccoloso_1.png",

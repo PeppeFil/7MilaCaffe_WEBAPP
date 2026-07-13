@@ -14,4 +14,4 @@ class Role(db.Model):
         db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow
     )
 
-    utenti = db.relationship("User", back_populates="ruolo", lazy="selectin")
+    utenti = db.relationship("User", back_populates="ruolo", lazy="select")

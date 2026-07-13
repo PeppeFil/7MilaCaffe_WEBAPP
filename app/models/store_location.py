@@ -22,12 +22,12 @@ class StoreLocation(db.Model):
     )
 
     utenti_predefiniti = db.relationship(
-        "User", back_populates="punto_vendita_predefinito", lazy="selectin"
+        "User", back_populates="punto_vendita_predefinito", lazy="select"
     )
     giacenze = db.relationship("StoreInventory", back_populates="punto_vendita", lazy="noload")
-    vendite = db.relationship("Sale", back_populates="punto_vendita", lazy="selectin")
+    vendite = db.relationship("Sale", back_populates="punto_vendita", lazy="select")
     movimenti = db.relationship(
-        "InventoryMovement", back_populates="punto_vendita", lazy="selectin"
+        "InventoryMovement", back_populates="punto_vendita", lazy="select"
     )
 
     @property
