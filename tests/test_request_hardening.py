@@ -66,7 +66,10 @@ def test_cash_page_uses_simple_product_tiles(client):
     response = client.get("/cassa")
 
     assert response.status_code == 200
-    assert b"Tocca un prodotto per iniziare." in response.data
+    assert b"Il carrello \xc3\xa8 vuoto." in response.data
+    assert b'class="category-chip active"' in response.data
+    assert b'id="categoriaFilter"' in response.data
+    assert b'Cerca un prodotto o leggi il barcode' in response.data
     assert b"Completa vendita" in response.data
 
 
