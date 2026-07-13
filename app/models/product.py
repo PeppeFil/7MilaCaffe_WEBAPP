@@ -44,7 +44,7 @@ class Product(db.Model):
         "InventoryMovement", back_populates="prodotto", lazy="selectin"
     )
     giacenze_punti_vendita = db.relationship(
-        "StoreInventory", back_populates="prodotto", lazy="selectin", cascade="all, delete-orphan"
+        "StoreInventory", back_populates="prodotto", lazy="noload", cascade="all, delete-orphan"
     )
 
     @property

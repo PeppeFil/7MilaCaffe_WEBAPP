@@ -64,11 +64,15 @@ def snapshot_dashboard(punto_vendita_id: int | None = None) -> dict:
 
     prodotti_sotto_scorta = sotto_scorta.all()
     if punto_vendita_id:
+        giacenze_sotto_scorta = {
+            r.prodotto_id: r
+            for r in StoreInventory.query.filter(
+                StoreInventory.punto_vendita_id == punto_vendita_id,
+                StoreInventory.prodotto_id.in_([p.id for p in prodotti_sotto_scorta]),
+            ).all()
+        }
         for prodotto in prodotti_sotto_scorta:
-            giacenza = next(
-                (r for r in prodotto.giacenze_punti_vendita if r.punto_vendita_id == punto_vendita_id),
-                None,
-            )
+            giacenza = giacenze_sotto_scorta.get(prodotto.id)
             prodotto.giacenza_corrente = giacenza.quantita_disponibile if giacenza else 0
             prodotto.scorta_minima_corrente = giacenza.quantita_minima_alert if giacenza else 0
 
