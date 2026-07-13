@@ -43,6 +43,9 @@ class Product(db.Model):
     movimenti_magazzino = db.relationship(
         "InventoryMovement", back_populates="prodotto", lazy="selectin"
     )
+    giacenze_punti_vendita = db.relationship(
+        "StoreInventory", back_populates="prodotto", lazy="selectin", cascade="all, delete-orphan"
+    )
 
     @property
     def stato_disponibilita(self) -> str:

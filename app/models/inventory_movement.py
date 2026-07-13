@@ -19,8 +19,14 @@ class InventoryMovement(db.Model):
     motivo = db.Column(db.String(255))
     costo_unitario = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
     operatore_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    punto_vendita_id = db.Column(
+        db.Integer, db.ForeignKey("store_locations.id"), nullable=True, index=True
+    )
     riferimento_entita = db.Column(db.String(80), index=True)
     note = db.Column(db.Text)
 
     prodotto = db.relationship("Product", back_populates="movimenti_magazzino", lazy="joined")
     operatore = db.relationship("User", back_populates="movimenti", lazy="joined")
+    punto_vendita = db.relationship(
+        "StoreLocation", back_populates="movimenti", lazy="joined"
+    )

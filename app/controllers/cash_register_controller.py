@@ -7,20 +7,23 @@ from sqlalchemy import or_
 from app.models import Brand, Category, Compatibility, Customer, Product, Sale, VatRate
 from app.models.constants import METODI_PAGAMENTO
 from app.services.sale_service import crea_vendita
+from app.services.store_service import mappa_giacenze, punto_vendita_corrente
 from app.utils.parsers import to_int
 
 
 cash_bp = Blueprint("cash", __name__)
 
 
-def _serialize_product(product: Product) -> dict:
+def _serialize_product(product: Product, quantita_disponibile: int | None = None) -> dict:
     return {
         "id": product.id,
         "nome": product.nome,
         "marca": product.brand.nome if product.brand else "",
         "formato_confezione": product.formato_confezione or "",
         "prezzo_vendita": float(product.prezzo_vendita),
-        "quantita_disponibile": product.quantita_disponibile,
+        "quantita_disponibile": (
+            product.quantita_disponibile if quantita_disponibile is None else quantita_disponibile
+        ),
         "categoria": product.categoria.nome if product.categoria else "",
         "sku_barcode": product.sku_barcode or "",
         "immagine_url": product.immagine_url or "",
@@ -30,15 +33,27 @@ def _serialize_product(product: Product) -> dict:
 @cash_bp.route("/cassa")
 @login_required
 def cassa():
+    punto_vendita = punto_vendita_corrente()
     categorie = Category.query.order_by(Category.nome.asc()).all()
     prodotti_popolari = Product.query.filter_by(attivo=True).order_by(Product.nome.asc()).limit(25).all()
+    giacenze = (
+        mappa_giacenze(punto_vendita.id, [p.id for p in prodotti_popolari])
+        if punto_vendita
+        else {}
+    )
     clienti = Customer.query.filter_by(attivo=True).order_by(Customer.nome.asc(), Customer.cognome.asc()).all()
     aliquote_iva = VatRate.query.filter_by(attiva=True).order_by(VatRate.aliquota.asc()).all()
     return render_template(
         "cassa.html",
         categorie=categorie,
         prodotti=prodotti_popolari,
-        prodotti_json=[_serialize_product(product) for product in prodotti_popolari],
+        prodotti_json=[
+            _serialize_product(
+                product,
+                giacenze[product.id].quantita_disponibile if product.id in giacenze else 0,
+            )
+            for product in prodotti_popolari
+        ],
         metodi_pagamento=METODI_PAGAMENTO,
         clienti=clienti,
         aliquote_iva=aliquote_iva,
@@ -48,6 +63,7 @@ def cassa():
 @cash_bp.route("/cassa/search")
 @login_required
 def search_products():
+    punto_vendita = punto_vendita_corrente()
     q = (request.args.get("q") or "").strip()
     categoria_id = request.args.get("categoria_id")
 
@@ -73,7 +89,16 @@ def search_products():
         query = query.filter(Product.categoria_id == categoria_id_int)
 
     products = query.order_by(Product.nome.asc()).limit(40).all()
-    return jsonify([_serialize_product(product) for product in products])
+    giacenze = (
+        mappa_giacenze(punto_vendita.id, [p.id for p in products]) if punto_vendita else {}
+    )
+    return jsonify([
+        _serialize_product(
+            product,
+            giacenze[product.id].quantita_disponibile if product.id in giacenze else 0,
+        )
+        for product in products
+    ])
 
 
 @cash_bp.route("/cassa/checkout", methods=["POST"])
@@ -104,6 +129,7 @@ def checkout():
             note_cliente=data.get("note_cliente", ""),
             customer_id=data.get("customer_id"),
             vat_rate_id=data.get("vat_rate_id"),
+            punto_vendita_id=(punto_vendita_corrente().id if punto_vendita_corrente() else None),
         )
         flash(f"Vendita #{vendita.id} completata.", "success")
         return redirect(url_for("sales.detail", sale_id=vendita.id))
@@ -115,5 +141,9 @@ def checkout():
 @cash_bp.route("/cassa/ricevuta/<int:sale_id>")
 @login_required
 def ricevuta(sale_id):
-    vendita = Sale.query.get_or_404(sale_id)
+    punto_vendita = punto_vendita_corrente()
+    query = Sale.query.filter_by(id=sale_id)
+    if punto_vendita:
+        query = query.filter_by(punto_vendita_id=punto_vendita.id)
+    vendita = query.first_or_404()
     return render_template("receipt.html", vendita=vendita)

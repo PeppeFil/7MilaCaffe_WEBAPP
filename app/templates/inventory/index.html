@@ -65,12 +65,12 @@
             <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
             <td>{{ p.brand.nome if p.brand else '-' }}</td>
             <td>{{ p.compatibility.nome if p.compatibility else "-" }}</td>
-            <td>{{ p.quantita_disponibile }}</td>
-            <td>{{ p.quantita_minima_alert }}</td>
+            <td>{{ p.giacenza_corrente }}</td>
+            <td>{{ p.scorta_minima_corrente }}</td>
             <td>
-              {% if p.stato_disponibilita == 'esaurito' %}
+              {% if p.stato_disponibilita_corrente == 'esaurito' %}
                 <span class="badge bg-danger">Esaurito</span>
-              {% elif p.stato_disponibilita == 'quasi esaurito' %}
+              {% elif p.stato_disponibilita_corrente == 'quasi esaurito' %}
                 <span class="badge bg-warning text-dark">Quasi esaurito</span>
               {% else %}
                 <span class="badge bg-success">Disponibile</span>

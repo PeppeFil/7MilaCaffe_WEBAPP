@@ -4,7 +4,9 @@ from decimal import Decimal
 from app.extensions import db
 from app.models import InventoryMovement, Product
 from app.services.audit_service import registra_attivita
+from app.services.store_service import giacenza_o_crea
 from app.utils.parsers import to_int
+from app.utils.timezones import utc_now_naive
 
 
 MOVEMENT_DIRECTIONS = {
@@ -29,6 +31,7 @@ def registra_movimento(
     riferimento_entita: str | None = None,
     note: str | None = None,
     data_ora: datetime | None = None,
+    punto_vendita_id: int | None = None,
     commit: bool = False,
 ) -> InventoryMovement:
     if tipo_movimento not in MOVEMENT_DIRECTIONS:
@@ -45,22 +48,28 @@ def registra_movimento(
     else:
         delta = abs(quantita_int) * MOVEMENT_DIRECTIONS[tipo_movimento]
 
-    nuova_giacenza = prodotto.quantita_disponibile + delta
+    giacenza = giacenza_o_crea(prodotto, punto_vendita_id) if punto_vendita_id else None
+    quantita_corrente = giacenza.quantita_disponibile if giacenza else prodotto.quantita_disponibile
+    nuova_giacenza = quantita_corrente + delta
     if nuova_giacenza < 0:
         raise ValueError(
-            f"Stock insufficiente per {prodotto.nome}. Disponibile: {prodotto.quantita_disponibile}"
+            f"Stock insufficiente per {prodotto.nome}. Disponibile: {quantita_corrente}"
         )
 
-    prodotto.quantita_disponibile = nuova_giacenza
+    if giacenza:
+        giacenza.quantita_disponibile = nuova_giacenza
+    else:
+        prodotto.quantita_disponibile = nuova_giacenza
 
     movimento = InventoryMovement(
         tipo_movimento=tipo_movimento,
-        data_ora=data_ora or datetime.utcnow(),
+        data_ora=data_ora or utc_now_naive(),
         prodotto_id=prodotto.id,
         quantita=delta,
         motivo=motivo or None,
         costo_unitario=costo_unitario or prodotto.prezzo_acquisto,
         operatore_id=operatore_id,
+        punto_vendita_id=punto_vendita_id,
         riferimento_entita=riferimento_entita,
         note=note,
     )
@@ -80,6 +89,7 @@ def crea_movimento_manuale(
     motivo: str = "",
     costo_unitario: Decimal | None = None,
     note: str | None = None,
+    punto_vendita_id: int | None = None,
 ) -> InventoryMovement:
     prodotto = Product.query.get_or_404(prodotto_id)
     movimento = registra_movimento(
@@ -90,6 +100,7 @@ def crea_movimento_manuale(
         motivo=motivo,
         costo_unitario=costo_unitario,
         note=note,
+        punto_vendita_id=punto_vendita_id,
     )
 
     registra_attivita(
@@ -103,8 +114,10 @@ def crea_movimento_manuale(
     return movimento
 
 
-def query_movimenti(filtri: dict):
+def query_movimenti(filtri: dict, punto_vendita_id: int | None = None):
     query = InventoryMovement.query.join(Product).order_by(InventoryMovement.data_ora.desc())
+    if punto_vendita_id:
+        query = query.filter(InventoryMovement.punto_vendita_id == punto_vendita_id)
 
     tipo = (filtri.get("tipo") or "").strip()
     if tipo:

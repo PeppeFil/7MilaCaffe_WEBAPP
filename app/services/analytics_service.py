@@ -4,18 +4,20 @@ from decimal import Decimal
 
 from sqlalchemy import case, func
 
-from app.models import Category, Product, Sale, SaleItem
+from app.models import Category, Product, Sale, SaleItem, StoreInventory
+from app.utils.timezones import rome_day_bounds_utc
 
 
-def snapshot_dashboard() -> dict:
-    oggi = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    domani = oggi + timedelta(days=1)
+def snapshot_dashboard(punto_vendita_id: int | None = None) -> dict:
+    oggi, domani = rome_day_bounds_utc()
 
     vendite_oggi = Sale.query.filter(
         Sale.data_ora >= oggi,
         Sale.data_ora < domani,
         Sale.stato == "completata",
     )
+    if punto_vendita_id:
+        vendite_oggi = vendite_oggi.filter(Sale.punto_vendita_id == punto_vendita_id)
 
     incasso_oggi = vendite_oggi.with_entities(func.coalesce(func.sum(Sale.totale_netto), 0)).scalar()
     numero_vendite_oggi = vendite_oggi.count()
@@ -24,15 +26,28 @@ def snapshot_dashboard() -> dict:
         SaleItem.query.join(Sale, SaleItem.vendita_id == Sale.id)
         .filter(Sale.data_ora >= oggi, Sale.data_ora < domani, Sale.stato == "completata")
         .with_entities(func.coalesce(func.sum(SaleItem.quantita), 0))
-        .scalar()
     )
+    if punto_vendita_id:
+        pezzi_venduti_oggi = pezzi_venduti_oggi.filter(Sale.punto_vendita_id == punto_vendita_id)
+    pezzi_venduti_oggi = pezzi_venduti_oggi.scalar()
 
-    sotto_scorta = Product.query.filter(
-        Product.attivo.is_(True),
-        Product.quantita_disponibile <= Product.quantita_minima_alert,
-    ).order_by(Product.quantita_disponibile.asc())
+    if punto_vendita_id:
+        sotto_scorta = (
+            Product.query.join(StoreInventory, StoreInventory.prodotto_id == Product.id)
+            .filter(
+                Product.attivo.is_(True),
+                StoreInventory.punto_vendita_id == punto_vendita_id,
+                StoreInventory.quantita_disponibile <= StoreInventory.quantita_minima_alert,
+            )
+            .order_by(StoreInventory.quantita_disponibile.asc())
+        )
+    else:
+        sotto_scorta = Product.query.filter(
+            Product.attivo.is_(True),
+            Product.quantita_disponibile <= Product.quantita_minima_alert,
+        ).order_by(Product.quantita_disponibile.asc())
 
-    prodotto_top = (
+    prodotto_top_query = (
         Product.query.join(SaleItem, Product.id == SaleItem.prodotto_id)
         .join(Sale, Sale.id == SaleItem.vendita_id)
         .filter(Sale.data_ora >= oggi, Sale.data_ora < domani, Sale.stato == "completata")
@@ -42,29 +57,45 @@ def snapshot_dashboard() -> dict:
         )
         .group_by(Product.nome)
         .order_by(func.sum(SaleItem.quantita).desc())
-        .first()
     )
+    if punto_vendita_id:
+        prodotto_top_query = prodotto_top_query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    prodotto_top = prodotto_top_query.first()
 
-    trend = _trend_ultimi_sette_giorni()
-    magazzino = _sintesi_magazzino()
+    prodotti_sotto_scorta = sotto_scorta.all()
+    if punto_vendita_id:
+        for prodotto in prodotti_sotto_scorta:
+            giacenza = next(
+                (r for r in prodotto.giacenze_punti_vendita if r.punto_vendita_id == punto_vendita_id),
+                None,
+            )
+            prodotto.giacenza_corrente = giacenza.quantita_disponibile if giacenza else 0
+            prodotto.scorta_minima_corrente = giacenza.quantita_minima_alert if giacenza else 0
+
+    trend = _trend_ultimi_sette_giorni(punto_vendita_id)
+    magazzino = _sintesi_magazzino(punto_vendita_id)
 
     return {
         "incasso_oggi": Decimal(str(incasso_oggi or 0)),
         "numero_vendite_oggi": numero_vendite_oggi,
         "pezzi_venduti_oggi": int(pezzi_venduti_oggi or 0),
-        "sotto_scorta": sotto_scorta.all(),
+        "sotto_scorta": prodotti_sotto_scorta,
         "prodotto_top_oggi": prodotto_top,
         "trend_7_giorni": trend,
         "magazzino": magazzino,
     }
 
 
-def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
+def analisi_periodo(
+    data_inizio: datetime, data_fine: datetime, punto_vendita_id: int | None = None
+) -> dict:
     vendite_range = Sale.query.filter(
         Sale.data_ora >= data_inizio,
         Sale.data_ora < data_fine,
         Sale.stato == "completata",
     )
+    if punto_vendita_id:
+        vendite_range = vendite_range.filter(Sale.punto_vendita_id == punto_vendita_id)
 
     tot_fatturato = vendite_range.with_entities(func.coalesce(func.sum(Sale.totale_netto), 0)).scalar()
     tot_margine = vendite_range.with_entities(func.coalesce(func.sum(Sale.margine_stimato), 0)).scalar()
@@ -84,7 +115,7 @@ def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
         righe_giornaliere
     )
 
-    fatturato_categoria = (
+    fatturato_categoria_query = (
         Category.query.join(Product, Product.categoria_id == Category.id)
         .join(SaleItem, SaleItem.prodotto_id == Product.id)
         .join(Sale, Sale.id == SaleItem.vendita_id)
@@ -95,10 +126,17 @@ def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
         )
         .group_by(Category.nome)
         .order_by(func.sum(SaleItem.subtotale).desc())
-        .all()
     )
+    if punto_vendita_id:
+        fatturato_categoria_query = fatturato_categoria_query.filter(
+            Sale.punto_vendita_id == punto_vendita_id
+        )
+    fatturato_categoria = [
+        {"nome": r.nome, "totale": float(r.totale or 0)}
+        for r in fatturato_categoria_query.all()
+    ]
 
-    top_prodotti = (
+    top_prodotti_query = (
         Product.query.join(SaleItem, Product.id == SaleItem.prodotto_id)
         .join(Sale, Sale.id == SaleItem.vendita_id)
         .filter(Sale.data_ora >= data_inizio, Sale.data_ora < data_fine, Sale.stato == "completata")
@@ -110,10 +148,12 @@ def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
         .group_by(Product.nome)
         .order_by(func.sum(SaleItem.quantita).desc())
         .limit(10)
-        .all()
     )
+    if punto_vendita_id:
+        top_prodotti_query = top_prodotti_query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    top_prodotti = top_prodotti_query.all()
 
-    low_prodotti = (
+    low_prodotti_query = (
         Product.query.outerjoin(SaleItem, Product.id == SaleItem.prodotto_id)
         .outerjoin(
             Sale,
@@ -131,8 +171,10 @@ def analisi_periodo(data_inizio: datetime, data_fine: datetime) -> dict:
         .group_by(Product.nome)
         .order_by("pezzi")
         .limit(10)
-        .all()
     )
+    if punto_vendita_id:
+        low_prodotti_query = low_prodotti_query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    low_prodotti = low_prodotti_query.all()
 
     pagamenti = (
         vendite_range.with_entities(
@@ -189,16 +231,18 @@ def _to_date(value) -> date:
     return date.fromisoformat(str(value))
 
 
-def _trend_ultimi_sette_giorni():
-    oggi = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+def _trend_ultimi_sette_giorni(punto_vendita_id: int | None = None):
+    oggi, domani = rome_day_bounds_utc()
     inizio = oggi - timedelta(days=6)
 
-    risultati = (
+    risultati_query = (
         Sale.query.filter(Sale.data_ora >= inizio, Sale.data_ora < oggi + timedelta(days=1), Sale.stato == "completata")
         .with_entities(func.date(Sale.data_ora), func.coalesce(func.sum(Sale.totale_netto), 0))
         .group_by(func.date(Sale.data_ora))
-        .all()
     )
+    if punto_vendita_id:
+        risultati_query = risultati_query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    risultati = risultati_query.all()
     by_date = {str(item[0]): float(item[1]) for item in risultati}
 
     trend = []
@@ -209,13 +253,26 @@ def _trend_ultimi_sette_giorni():
     return trend
 
 
-def _sintesi_magazzino():
-    valori = Product.query.filter(Product.attivo.is_(True)).with_entities(
+def _sintesi_magazzino(punto_vendita_id: int | None = None):
+    if punto_vendita_id:
+        valori = (
+            Product.query.join(StoreInventory, StoreInventory.prodotto_id == Product.id)
+            .filter(Product.attivo.is_(True), StoreInventory.punto_vendita_id == punto_vendita_id)
+            .with_entities(
+                func.count(Product.id),
+                func.coalesce(func.sum(StoreInventory.quantita_disponibile), 0),
+                func.coalesce(func.sum(StoreInventory.quantita_disponibile * Product.prezzo_acquisto), 0),
+                func.coalesce(func.sum(StoreInventory.quantita_disponibile * Product.prezzo_vendita), 0),
+            )
+            .first()
+        )
+    else:
+        valori = Product.query.filter(Product.attivo.is_(True)).with_entities(
         func.count(Product.id),
         func.coalesce(func.sum(Product.quantita_disponibile), 0),
         func.coalesce(func.sum(Product.quantita_disponibile * Product.prezzo_acquisto), 0),
         func.coalesce(func.sum(Product.quantita_disponibile * Product.prezzo_vendita), 0),
-    ).first()
+        ).first()
 
     return {
         "numero_prodotti": int(valori[0] or 0),

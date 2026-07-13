@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from sqlalchemy.orm import joinedload
@@ -7,7 +7,10 @@ from app.extensions import db
 from app.models import Customer, Product, Sale, SaleItem, VatRate
 from app.services.audit_service import registra_attivita
 from app.services.inventory_service import registra_movimento
+from app.services.store_service import quantita_disponibile
 from app.utils.parsers import to_decimal, to_int
+from app.utils.timezones import utc_now_naive
+from app.utils.timezones import ROME_TIMEZONE
 
 
 def crea_vendita(
@@ -20,6 +23,7 @@ def crea_vendita(
     customer_id=None,
     vat_rate_id=None,
     data_ora: datetime | None = None,
+    punto_vendita_id: int | None = None,
     commit: bool = True,
 ) -> Sale:
     if not items:
@@ -38,10 +42,11 @@ def crea_vendita(
         prodotto = Product.query.filter_by(id=prodotto_id, attivo=True).first()
         if not prodotto:
             raise ValueError(f"Prodotto ID {prodotto_id} non trovato o non attivo.")
-        if prodotto.quantita_disponibile < quantita:
+        disponibile = quantita_disponibile(prodotto, punto_vendita_id)
+        if disponibile < quantita:
             raise ValueError(
                 f"Stock insufficiente per {prodotto.nome}. "
-                f"Disponibile: {prodotto.quantita_disponibile}"
+                f"Disponibile: {disponibile}"
             )
 
         prezzo_unitario = Decimal(str(prodotto.prezzo_vendita))
@@ -98,7 +103,7 @@ def crea_vendita(
     totale_iva = (totale_netto * aliquota_iva) / Decimal("100")
 
     vendita = Sale(
-        data_ora=data_ora or datetime.utcnow(),
+        data_ora=data_ora or utc_now_naive(),
         totale_lordo=totale_lordo,
         sconto_tipo=sconto_tipo,
         sconto_valore=sconto_valore_dec,
@@ -110,6 +115,7 @@ def crea_vendita(
         aliquota_iva_snapshot=aliquota_iva,
         totale_iva=totale_iva,
         operatore_id=operatore_id,
+        punto_vendita_id=punto_vendita_id,
         stato="completata",
         margine_stimato=margine_totale,
     )
@@ -136,6 +142,7 @@ def crea_vendita(
             motivo="Scarico automatico da vendita",
             riferimento_entita=f"vendita:{vendita.id}",
             data_ora=vendita.data_ora,
+            punto_vendita_id=punto_vendita_id,
         )
 
     registra_attivita(
@@ -174,7 +181,8 @@ def annulla_vendita(
             operatore_id=operatore_id,
             motivo=motivo,
             riferimento_entita=f"vendita:{vendita.id}",
-            data_ora=data_ora or datetime.utcnow(),
+            data_ora=data_ora or utc_now_naive(),
+            punto_vendita_id=vendita.punto_vendita_id,
         )
 
     vendita.stato = "annullata"
@@ -192,8 +200,10 @@ def annulla_vendita(
     return vendita
 
 
-def query_vendite(filtri: dict):
+def query_vendite(filtri: dict, punto_vendita_id: int | None = None):
     query = Sale.query.order_by(Sale.data_ora.desc())
+    if punto_vendita_id:
+        query = query.filter(Sale.punto_vendita_id == punto_vendita_id)
 
     stato = (filtri.get("stato") or "").strip()
     if stato:
@@ -202,14 +212,22 @@ def query_vendite(filtri: dict):
     data_da = (filtri.get("data_da") or "").strip()
     if data_da:
         try:
-            query = query.filter(Sale.data_ora >= datetime.fromisoformat(data_da))
+            local_start = datetime.fromisoformat(data_da).replace(tzinfo=ROME_TIMEZONE)
+            query = query.filter(
+                Sale.data_ora >= local_start.astimezone(timezone.utc).replace(tzinfo=None)
+            )
         except ValueError as exc:
             raise ValueError("Data iniziale non valida.") from exc
 
     data_a = (filtri.get("data_a") or "").strip()
     if data_a:
         try:
-            query = query.filter(Sale.data_ora <= datetime.fromisoformat(data_a))
+            local_end = (
+                datetime.fromisoformat(data_a).replace(tzinfo=ROME_TIMEZONE) + timedelta(days=1)
+            )
+            query = query.filter(
+                Sale.data_ora < local_end.astimezone(timezone.utc).replace(tzinfo=None)
+            )
         except ValueError as exc:
             raise ValueError("Data finale non valida.") from exc
 

@@ -11,6 +11,7 @@ from app.services.report_service import (
     csv_vendite_giornaliere,
     pdf_vendite_giornaliere,
 )
+from app.services.store_service import punto_vendita_corrente
 
 
 report_bp = Blueprint("report", __name__)
@@ -36,7 +37,8 @@ def export_csv(nome_report):
         return Response("Report non trovato.", status=404)
 
     csv_func, filename = exporters[nome_report]
-    csv_text = csv_func()
+    punto_vendita = punto_vendita_corrente()
+    csv_text = csv_func(punto_vendita.id if punto_vendita else None)
     return Response(
         csv_text,
         mimetype="text/csv",
@@ -47,7 +49,8 @@ def export_csv(nome_report):
 @report_bp.route("/report/export/vendite_giornaliere.pdf")
 @login_required
 def export_pdf():
-    pdf_data = pdf_vendite_giornaliere(datetime.now())
+    punto_vendita = punto_vendita_corrente()
+    pdf_data = pdf_vendite_giornaliere(datetime.now(), punto_vendita.id if punto_vendita else None)
     return Response(
         pdf_data,
         mimetype="application/pdf",

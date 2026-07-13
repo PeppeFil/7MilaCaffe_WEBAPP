@@ -1,6 +1,7 @@
 import pytest
 
-from app.models import InventoryMovement, Product, Sale, User
+from app.extensions import db
+from app.models import InventoryMovement, Product, Sale, StoreInventory, StoreLocation, User
 from app.services.sale_service import annulla_vendita, crea_vendita
 
 
@@ -55,3 +56,49 @@ def test_sale_cannot_exceed_available_stock(app):
                 sconto_valore=0,
                 metodo_pagamento="carta",
             )
+
+
+def test_store_inventory_is_separate(app):
+    with app.app_context():
+        operatore = User.query.filter_by(username="operatore").first()
+        prodotto = Product.query.filter_by(sku_barcode="TEST-001").first()
+        pepoli = StoreLocation(
+            codice="test-pepoli",
+            nome="Pepoli",
+            indirizzo="Via Pepoli 1",
+            cap="91100",
+            comune="Trapani",
+            provincia="TP",
+            ragione_sociale="Test Pepoli",
+            partita_iva="00000000001",
+        )
+        vespri = StoreLocation(
+            codice="test-vespri",
+            nome="Vespri",
+            indirizzo="Via Vespri 1",
+            cap="91019",
+            comune="Valderice",
+            provincia="TP",
+            ragione_sociale="Test Vespri",
+            partita_iva="00000000002",
+        )
+        db.session.add_all([pepoli, vespri])
+        db.session.flush()
+        db.session.add_all([
+            StoreInventory(punto_vendita_id=pepoli.id, prodotto_id=prodotto.id, quantita_disponibile=10),
+            StoreInventory(punto_vendita_id=vespri.id, prodotto_id=prodotto.id, quantita_disponibile=4),
+        ])
+        db.session.commit()
+
+        vendita = crea_vendita(
+            operatore_id=operatore.id,
+            punto_vendita_id=pepoli.id,
+            items=[{"prodotto_id": prodotto.id, "quantita": 3}],
+            sconto_tipo="nessuno",
+            sconto_valore=0,
+            metodo_pagamento="contanti",
+        )
+
+        assert vendita.punto_vendita_id == pepoli.id
+        assert StoreInventory.query.filter_by(punto_vendita_id=pepoli.id, prodotto_id=prodotto.id).one().quantita_disponibile == 7
+        assert StoreInventory.query.filter_by(punto_vendita_id=vespri.id, prodotto_id=prodotto.id).one().quantita_disponibile == 4

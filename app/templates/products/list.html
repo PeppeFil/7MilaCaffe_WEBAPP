@@ -4,7 +4,7 @@
 <section class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
   <div>
     <h2>Prodotti</h2>
-    <p>Gestione catalogo, prezzi e quantita disponibili.</p>
+    <p>Catalogo globale; quantità riferite al punto vendita attivo.</p>
   </div>
   <div class="d-flex gap-2">
     <a href="{{ url_for('products.export_csv', **filtri) }}" class="btn btn-outline-light">Export CSV</a>
@@ -103,8 +103,8 @@
             <div class="small">Vend: EUR {{ "%.2f"|format(p.prezzo_vendita) }}</div>
           </td>
           <td>
-            <span class="badge {% if p.stato_disponibilita == 'esaurito' %}bg-danger{% elif p.stato_disponibilita == 'quasi esaurito' %}bg-warning text-dark{% else %}bg-success{% endif %}">
-              {{ p.quantita_disponibile }}
+            <span class="badge {% if p.giacenza_corrente <= 0 %}bg-danger{% elif p.giacenza_corrente <= p.scorta_minima_corrente %}bg-warning text-dark{% else %}bg-success{% endif %}">
+              {{ p.giacenza_corrente }}
             </span>
           </td>
           <td>{{ p.sku_barcode or "-" }}</td>

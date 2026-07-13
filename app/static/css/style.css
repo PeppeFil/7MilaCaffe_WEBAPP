@@ -42,6 +42,8 @@ body.coffee-app {
   top: 0;
   height: 100vh;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   transition: padding 0.2s ease;
 }
 
@@ -64,6 +66,13 @@ body.coffee-app {
   font-family: "Fraunces", serif;
   letter-spacing: 0.4px;
 }
+
+.brand-with-logo { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.brand-logo { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; background: #fff; }
+.brand-copy { min-width: 0; }
+.brand-copy p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-logout { margin-top: auto; border-top: 1px solid rgba(255,255,255,.13); padding-top: .7rem; }
+.nav-link-button { width: 100%; border: 0; background: transparent; text-align: left; }
 
 .brand p {
   margin: 0.2rem 0 1rem;
@@ -133,6 +142,9 @@ body.coffee-app {
   justify-content: space-between;
   align-items: center;
 }
+.topbar-store { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f3dfcd; font-size: .9rem; }
+.topbar-actions { display: flex; align-items: center; gap: .65rem; }
+.active-user { padding: .36rem .68rem; border-radius: 999px; background: rgba(255,255,255,.14); font-weight: 600; white-space: nowrap; }
 
 .page-header {
   margin-top: 1rem;
@@ -212,9 +224,9 @@ body.coffee-app {
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(205px, 1fr));
   gap: 0.9rem;
-  max-height: 70vh;
+  max-height: 66vh;
   overflow: auto;
   padding: 0.1rem;
 }
@@ -223,7 +235,7 @@ body.coffee-app {
   appearance: none;
   display: flex;
   width: 100%;
-  min-height: 272px;
+  min-height: 340px;
   flex-direction: column;
   overflow: hidden;
   text-align: left;
@@ -247,7 +259,7 @@ body.coffee-app {
 .product-image,
 .product-image-fallback {
   width: 100%;
-  height: 140px;
+  height: 190px;
   object-fit: cover;
   background: linear-gradient(135deg, #f3e6d6, #d4b69c);
 }
@@ -281,7 +293,7 @@ body.coffee-app {
 .product-tile-stock { margin: 0.1rem 0 0.6rem; }
 .product-tile-price { color: var(--coffee-800); font-size: 1.12rem; font-weight: 700; margin-top: auto; }
 
-.cash-filters { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 0.65rem; }
+.cash-filters { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 0.65rem; }
 .cart-panel { position: sticky; top: 1rem; }
 .cart-lines { max-height: 43vh; overflow-y: auto; }
 .cart-line { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.5rem; border-bottom: 1px solid rgba(255,255,255,.13); padding: .55rem 0; }
@@ -306,17 +318,33 @@ body.coffee-app {
 }
 
 .login-card {
-  width: min(480px, 95vw);
+  width: min(520px, 95vw);
   background: rgba(247, 240, 232, 0.97);
   color: var(--ink-700);
   border-radius: 16px;
-  padding: 1.4rem;
+  padding: 2rem;
   box-shadow: 0 14px 45px rgba(0, 0, 0, 0.25);
 }
 
 .login-card h1 {
   font-family: "Fraunces", serif;
   font-size: 1.7rem;
+}
+.login-card { text-align: center; }
+.login-card .form-control { text-align: center; }
+.login-logo { width: 112px; height: 112px; object-fit: cover; border-radius: 18px; margin-bottom: 1rem; box-shadow: 0 8px 20px rgba(66,40,22,.18); }
+.auth-content { background: radial-gradient(circle at 20% 15%, rgba(218,170,123,.52), transparent 35%), radial-gradient(circle at 80% 85%, rgba(111,78,55,.6), transparent 38%), #2f1f17; }
+
+@media (min-width: 1200px) {
+  body:has(.cash-layout) { overflow: hidden; }
+  body:has(.cash-layout) .main-content { height: 100vh; overflow: hidden; padding-bottom: .5rem; }
+  body:has(.cash-layout) .cash-header { margin-top: .55rem; margin-bottom: .5rem; }
+  body:has(.cash-layout) .cash-layout { height: calc(100vh - 146px); }
+  body:has(.cash-layout) .cash-layout > [class*="col-"] { height: 100%; }
+  body:has(.cash-layout) .cash-products-panel,
+  body:has(.cash-layout) .cart-panel { height: 100%; }
+  body:has(.cash-layout) .product-grid { max-height: calc(100% - 70px); height: calc(100% - 70px); }
+  body:has(.cash-layout) .cart-lines { max-height: calc(100vh - 405px); }
 }
 
 .alert-warning {
@@ -355,4 +383,6 @@ body.coffee-app {
 
   .cash-filters { grid-template-columns: 1fr; }
   .cart-panel { position: static; }
+  .topbar-store { display: none; }
+  .topbar-actions { margin-left: auto; }
 }

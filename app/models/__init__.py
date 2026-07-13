@@ -17,6 +17,8 @@ from .role import Role
 from .sale import Sale
 from .sale_item import SaleItem
 from .shop_preference import ShopPreference
+from .store_inventory import StoreInventory
+from .store_location import StoreLocation
 from .supplier import Supplier
 from .user import User
 from .vat_rate import VatRate
@@ -37,6 +39,8 @@ __all__ = [
     "Sale",
     "SaleItem",
     "ShopPreference",
+    "StoreInventory",
+    "StoreLocation",
     "STATI_VENDITA",
     "Supplier",
     "TIPI_MOVIMENTO",

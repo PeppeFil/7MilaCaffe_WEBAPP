@@ -17,6 +17,9 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), nullable=False, unique=True, index=True)
     password_hash = db.Column(db.String(255), nullable=False)
     ruolo_id = db.Column(db.Integer, db.ForeignKey("roles.id"), nullable=False, index=True)
+    punto_vendita_predefinito_id = db.Column(
+        db.Integer, db.ForeignKey("store_locations.id"), index=True
+    )
     attivo = db.Column(db.Boolean, nullable=False, default=True, index=True)
     data_creazione = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     data_aggiornamento = db.Column(
@@ -24,6 +27,9 @@ class User(UserMixin, db.Model):
     )
 
     ruolo = db.relationship("Role", back_populates="utenti", lazy="joined")
+    punto_vendita_predefinito = db.relationship(
+        "StoreLocation", back_populates="utenti_predefiniti", lazy="joined"
+    )
     vendite = db.relationship("Sale", back_populates="operatore", lazy="selectin")
     movimenti = db.relationship(
         "InventoryMovement", back_populates="operatore", lazy="selectin"

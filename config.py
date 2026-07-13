@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -10,6 +11,9 @@ class BaseConfig:
     ITEMS_PER_PAGE = 25
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = "Lax"
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
 

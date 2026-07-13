@@ -14,7 +14,9 @@ from app.services.product_service import (
     esporta_prodotti_csv,
     importa_prodotti_csv,
 )
+from app.services.store_service import giacenza_o_crea, mappa_giacenze, punto_vendita_corrente
 from app.utils.decorators import role_required
+from app.utils.parsers import to_int
 
 
 product_bp = Blueprint("products", __name__)
@@ -25,6 +27,7 @@ product_bp = Blueprint("products", __name__)
 def index():
     filtri = request.args.to_dict()
     prodotti = cerca_prodotti(filtri).all()
+    _aggiungi_giacenze_correnti(prodotti)
     categorie = Category.query.order_by(Category.nome.asc()).all()
     marche = Brand.query.order_by(Brand.nome.asc()).all()
     compatibilita = Compatibility.query.order_by(Compatibility.nome.asc()).all()
@@ -51,6 +54,7 @@ def nuovo():
     if request.method == "POST":
         try:
             prodotto = crea_prodotto(request.form)
+            _salva_giacenza_corrente(prodotto)
             registra_attivita(
                 utente_id=current_user.id,
                 azione="creazione_prodotto",
@@ -79,6 +83,7 @@ def nuovo():
 @role_required(RUOLO_ADMIN)
 def modifica(product_id):
     prodotto = Product.query.get_or_404(product_id)
+    _aggiungi_giacenze_correnti([prodotto])
     categorie = Category.query.order_by(Category.nome.asc()).all()
     marche = Brand.query.order_by(Brand.nome.asc()).all()
     compatibilita = Compatibility.query.order_by(Compatibility.nome.asc()).all()
@@ -87,6 +92,7 @@ def modifica(product_id):
     if request.method == "POST":
         try:
             aggiorna_prodotto(prodotto, request.form)
+            _salva_giacenza_corrente(prodotto)
             registra_attivita(
                 utente_id=current_user.id,
                 azione="modifica_prodotto",
@@ -133,6 +139,7 @@ def elimina(product_id):
 def duplica(product_id):
     prodotto = Product.query.get_or_404(product_id)
     clone = duplica_prodotto(prodotto)
+    _salva_giacenza_corrente(clone)
     registra_attivita(
         utente_id=current_user.id,
         azione="duplica_prodotto",
@@ -143,6 +150,29 @@ def duplica(product_id):
     )
     flash("Prodotto duplicato.", "success")
     return redirect(url_for("products.modifica", product_id=clone.id))
+
+
+def _aggiungi_giacenze_correnti(prodotti) -> None:
+    punto_vendita = punto_vendita_corrente()
+    giacenze = (
+        mappa_giacenze(punto_vendita.id, [p.id for p in prodotti]) if punto_vendita else {}
+    )
+    for prodotto in prodotti:
+        giacenza = giacenze.get(prodotto.id)
+        prodotto.giacenza_corrente = giacenza.quantita_disponibile if giacenza else 0
+        prodotto.scorta_minima_corrente = (
+            giacenza.quantita_minima_alert if giacenza else prodotto.quantita_minima_alert
+        )
+
+
+def _salva_giacenza_corrente(prodotto: Product) -> None:
+    punto_vendita = punto_vendita_corrente()
+    if not punto_vendita:
+        return
+    giacenza = giacenza_o_crea(prodotto, punto_vendita.id)
+    giacenza.quantita_disponibile = to_int(request.form.get("quantita_disponibile"))
+    giacenza.quantita_minima_alert = to_int(request.form.get("quantita_minima_alert"))
+    db.session.commit()
 
 
 @product_bp.route("/prodotti/export.csv")

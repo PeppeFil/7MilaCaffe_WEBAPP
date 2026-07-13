@@ -3,7 +3,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from app.extensions import db
-from app.models import Brand, Category, Compatibility, Product, Supplier, User
+from app.models import Brand, Category, Compatibility, Product, StoreLocation, Supplier, User
 from app.services.inventory_service import registra_movimento
 
 
@@ -200,6 +200,7 @@ def sync_catalogo_reale() -> tuple[int, int]:
     compatibilita = _ensure_by_name(Compatibility, {row["compatibility"] for row in CATALOGO_REALE})
     fornitori = _ensure_by_name(Supplier, {row["supplier"] for row in CATALOGO_REALE})
     operatore = User.query.filter_by(attivo=True).order_by(User.id.asc()).first()
+    punto_vendita_iniziale = StoreLocation.query.filter_by(codice="via-pepoli", attivo=True).first()
 
     creati = 0
     presenti = 0
@@ -245,6 +246,7 @@ def sync_catalogo_reale() -> tuple[int, int]:
                 operatore_id=operatore.id,
                 motivo="Carico iniziale da listino giugno 2026",
                 riferimento_entita=row["supplier"],
+                punto_vendita_id=punto_vendita_iniziale.id if punto_vendita_iniziale else None,
             )
         else:
             product.quantita_disponibile = row["quantita"]

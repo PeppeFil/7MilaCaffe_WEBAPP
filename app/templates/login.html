@@ -3,17 +3,21 @@
 {% block content_auth %}
 <div class="login-wrapper">
   <div class="login-card">
-    <h1>Accesso Gestionale</h1>
-    <p>Inserisci le credenziali per entrare nella cassa virtuale.</p>
+    <img src="{{ url_for('static', filename='img/7milacaffe_logo.jpg') }}" class="login-logo" alt="7MilaCaffè">
+    <h1>Benvenuto in 7MilaCaffè</h1>
+    <p>Accedi alla cassa e al magazzino del tuo punto vendita.</p>
     <form method="post" class="row g-3">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-12">
-        <label class="form-label">Username</label>
+        <label class="form-label text-center d-block">Username</label>
         <input type="text" name="username" class="form-control form-control-lg" required>
       </div>
       <div class="col-12">
-        <label class="form-label">Password</label>
+        <label class="form-label text-center d-block">Password</label>
         <input type="password" name="password" class="form-control form-control-lg" required>
+      </div>
+      <div class="col-12 text-center">
+        <label class="form-check-label"><input type="checkbox" class="form-check-input me-2" name="remember" value="1">Resta collegato su questo dispositivo</label>
       </div>
       <div class="col-12 d-grid">
         <button type="submit" class="btn btn-coffee btn-lg">Accedi</button>

@@ -4,10 +4,11 @@ from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 
 from app.extensions import db
-from app.models import Brand, Compatibility, Customer, ShopPreference, VatRate
+from app.models import Brand, Compatibility, Customer, ShopPreference, StoreLocation, VatRate
 from app.models.constants import RUOLO_ADMIN
 from app.utils.decorators import role_required
 from app.utils.parsers import to_decimal
+from app.services.store_service import imposta_punto_vendita, punto_vendita_corrente
 
 
 settings_bp = Blueprint("settings", __name__)
@@ -30,6 +31,7 @@ def index():
     compatibilita = Compatibility.query.order_by(Compatibility.nome.asc()).all()
     aliquote_iva = VatRate.query.order_by(VatRate.aliquota.asc()).all()
     clienti = Customer.query.order_by(Customer.nome.asc(), Customer.cognome.asc()).all()
+    punti_vendita = StoreLocation.query.filter_by(attivo=True).order_by(StoreLocation.nome.asc()).all()
     return render_template(
         "settings/index.html",
         preferenze=preferenze,
@@ -37,6 +39,8 @@ def index():
         compatibilita=compatibilita,
         aliquote_iva=aliquote_iva,
         clienti=clienti,
+        punti_vendita=punti_vendita,
+        punto_vendita_corrente=punto_vendita_corrente(),
     )
 
 
@@ -56,6 +60,17 @@ def salva_preferenze():
         db.session.rollback()
         flash(f"Errore salvataggio preferenze: {exc}", "danger")
     return redirect(url_for("settings.index"))
+
+
+@settings_bp.route("/impostazioni/punto-vendita", methods=["POST"])
+@login_required
+def cambia_punto_vendita():
+    try:
+        punto_vendita = imposta_punto_vendita(int(request.form.get("punto_vendita_id", "0")))
+        flash(f"Punto vendita attivo: {punto_vendita.nome}.", "success")
+    except (TypeError, ValueError):
+        flash("Punto vendita non valido.", "warning")
+    return redirect(request.referrer or url_for("cash.cassa"))
 
 
 @settings_bp.route("/impostazioni/marche", methods=["POST"])

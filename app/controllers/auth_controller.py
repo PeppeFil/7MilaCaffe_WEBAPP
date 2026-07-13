@@ -1,5 +1,6 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
+from flask import session
 
 from app.services.auth_service import autentica_utente
 from app.utils.security import is_safe_redirect_target
@@ -18,7 +19,8 @@ def login():
         password = request.form.get("password") or ""
         utente = autentica_utente(username, password)
         if utente:
-            login_user(utente)
+            login_user(utente, remember=request.form.get("remember") == "1")
+            session.pop("punto_vendita_id", None)
             flash("Accesso effettuato con successo.", "success")
             next_page = request.args.get("next")
             if not is_safe_redirect_target(next_page, request.host_url):
@@ -34,5 +36,6 @@ def login():
 @login_required
 def logout():
     logout_user()
+    session.pop("punto_vendita_id", None)
     flash("Sessione terminata.", "info")
     return redirect(url_for("auth.login"))

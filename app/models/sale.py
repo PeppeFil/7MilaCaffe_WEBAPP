@@ -24,10 +24,14 @@ class Sale(db.Model):
     aliquota_iva_snapshot = db.Column(db.Numeric(5, 2), nullable=False, default=Decimal("0.00"))
     totale_iva = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     operatore_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    punto_vendita_id = db.Column(
+        db.Integer, db.ForeignKey("store_locations.id"), nullable=True, index=True
+    )
     stato = db.Column(db.String(20), nullable=False, default="completata", index=True)
     margine_stimato = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
 
     operatore = db.relationship("User", back_populates="vendite", lazy="joined")
+    punto_vendita = db.relationship("StoreLocation", back_populates="vendite", lazy="joined")
     customer = db.relationship("Customer", back_populates="vendite", lazy="joined")
     vat_rate = db.relationship("VatRate", back_populates="vendite", lazy="joined")
     righe = db.relationship(

@@ -14,8 +14,9 @@
     </style>
   </head>
   <body>
-    <h3>7MilaCaffe - Ricevuta</h3>
-    <div class="meta">Vendita #{{ vendita.id }} - {{ vendita.data_ora.strftime('%d/%m/%Y %H:%M') }}</div>
+    <h3>{{ vendita.punto_vendita.ragione_sociale if vendita.punto_vendita else '7MilaCaffe' }}</h3>
+    {% if vendita.punto_vendita %}<div class="meta">{{ vendita.punto_vendita.indirizzo_completo }} - P. IVA {{ vendita.punto_vendita.partita_iva }}</div>{% endif %}
+    <div class="meta">Vendita #{{ vendita.id }} - {{ vendita.data_ora|roma_datetime }}</div>
     <div class="meta">Operatore: {{ vendita.operatore.username if vendita.operatore else '-' }}</div>
     <div class="meta">Cliente: {{ vendita.customer.display_name if vendita.customer else 'Generico' }}</div>
     <div class="meta">Aliquota IVA: {{ "%.2f"|format(vendita.aliquota_iva_snapshot or 0) }}%</div>

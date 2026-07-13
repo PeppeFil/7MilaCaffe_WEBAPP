@@ -1,6 +1,7 @@
 import os
 
 from flask import Flask, abort, redirect, request, url_for
+from flask_login import current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import config_by_name
@@ -52,7 +53,21 @@ def _init_extensions(app: Flask) -> None:
 
     @app.context_processor
     def inject_security_helpers():
-        return {"csrf_token": get_csrf_token}
+        from .services.store_service import punto_vendita_corrente
+        from .utils.timezones import utc_to_rome
+
+        return {
+            "csrf_token": get_csrf_token,
+            "punto_vendita_corrente": punto_vendita_corrente() if current_user.is_authenticated else None,
+            "data_roma": utc_to_rome,
+        }
+
+    @app.template_filter("roma_datetime")
+    def roma_datetime(value, fmt="%d/%m/%Y %H:%M"):
+        from .utils.timezones import utc_to_rome
+
+        local_value = utc_to_rome(value)
+        return local_value.strftime(fmt) if local_value else "-"
 
 
 def _register_commands(app: Flask) -> None:

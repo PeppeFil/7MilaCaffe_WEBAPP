@@ -77,8 +77,8 @@
             <tr>
               <td>{{ p.nome }}</td>
               <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
-              <td><span class="badge bg-danger">{{ p.quantita_disponibile }}</span></td>
-              <td>{{ p.quantita_minima_alert }}</td>
+              <td><span class="badge bg-danger">{{ p.giacenza_corrente if p.giacenza_corrente is defined else p.quantita_disponibile }}</span></td>
+              <td>{{ p.scorta_minima_corrente if p.scorta_minima_corrente is defined else p.quantita_minima_alert }}</td>
             </tr>
           {% endfor %}
         </tbody>

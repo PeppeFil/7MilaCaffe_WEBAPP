@@ -15,7 +15,7 @@
       <select name="prodotto_id" class="form-select" required>
         <option value="">Prodotto</option>
         {% for p in prodotti %}
-          <option value="{{ p.id }}">{{ p.nome }} ({{ p.quantita_disponibile }})</option>
+          <option value="{{ p.id }}">{{ p.nome }} ({{ p.giacenza_corrente }})</option>
         {% endfor %}
       </select>
     </div>
@@ -84,7 +84,7 @@
         {% for m in movimenti %}
           <tr>
             <td>{{ m.id }}</td>
-            <td>{{ m.data_ora.strftime('%d/%m/%Y %H:%M') }}</td>
+            <td>{{ m.data_ora|roma_datetime }}</td>
             <td>{{ m.tipo_movimento }}</td>
             <td>{{ m.prodotto.nome if m.prodotto else '-' }}</td>
             <td>

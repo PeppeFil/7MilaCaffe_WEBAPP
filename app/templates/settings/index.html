@@ -6,6 +6,23 @@
   <p>Configurazioni operative del gestionale.</p>
 </section>
 
+<div class="panel-card mb-3">
+  <h5>Punto vendita attivo</h5>
+  <p class="mb-2 text-light">Le vendite, il magazzino e le analisi restano separati per sede.</p>
+  <form method="post" action="{{ url_for('settings.cambia_punto_vendita') }}" class="row g-2 align-items-end">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-8">
+      <label class="form-label">Sede in cui stai lavorando</label>
+      <select name="punto_vendita_id" class="form-select">
+        {% for punto in punti_vendita %}
+          <option value="{{ punto.id }}" {% if punto_vendita_corrente and punto.id == punto_vendita_corrente.id %}selected{% endif %}>{{ punto.nome }} — {{ punto.indirizzo_completo }} — {{ punto.ragione_sociale }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-md-4 d-grid"><button class="btn btn-coffee">Cambia punto vendita</button></div>
+  </form>
+</div>
+
 <div class="row g-3">
   <div class="col-12">
     <div class="panel-card">

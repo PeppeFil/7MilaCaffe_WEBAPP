@@ -1,4 +1,6 @@
 from tests.helpers import get_csrf_token, login
+from app.models import Product, User
+from app.services.sale_service import crea_vendita
 
 
 def test_login_success(client):
@@ -40,6 +42,23 @@ def test_login_requires_csrf_token(client):
     )
 
     assert response.status_code == 400
+
+
+def test_analysis_page_loads(client):
+    with client.application.app_context():
+        prodotto = Product.query.filter_by(sku_barcode="TEST-001").first()
+        operatore = User.query.filter_by(username="operatore").first()
+        crea_vendita(
+            operatore_id=operatore.id,
+            items=[{"prodotto_id": prodotto.id, "quantita": 1}],
+            sconto_tipo="nessuno",
+            sconto_valore=0,
+            metodo_pagamento="contanti",
+        )
+    login(client, "admin", "admin123")
+    response = client.get("/analisi")
+    assert response.status_code == 200
+    assert b"Analisi Vendite" in response.data
 
 
 def test_logout_requires_post(client):

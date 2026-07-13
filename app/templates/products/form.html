@@ -61,12 +61,12 @@
       <input type="number" min="0" step="0.01" class="form-control" name="prezzo_vendita" required value="{{ prodotto.prezzo_vendita if prodotto else '0.00' }}">
     </div>
     <div class="col-md-3">
-      <label class="form-label">Quantita disponibile *</label>
-      <input type="number" min="0" step="1" class="form-control" name="quantita_disponibile" required value="{{ prodotto.quantita_disponibile if prodotto else '0' }}">
+      <label class="form-label">Quantità nel punto vendita attivo *</label>
+      <input type="number" min="0" step="1" class="form-control" name="quantita_disponibile" required value="{{ prodotto.giacenza_corrente if prodotto else '0' }}">
     </div>
     <div class="col-md-3">
-      <label class="form-label">Scorta minima *</label>
-      <input type="number" min="0" step="1" class="form-control" name="quantita_minima_alert" required value="{{ prodotto.quantita_minima_alert if prodotto else '0' }}">
+      <label class="form-label">Scorta minima sede *</label>
+      <input type="number" min="0" step="1" class="form-control" name="quantita_minima_alert" required value="{{ prodotto.scorta_minima_corrente if prodotto else '0' }}">
     </div>
     <div class="col-md-4">
       <label class="form-label">Fornitore</label>

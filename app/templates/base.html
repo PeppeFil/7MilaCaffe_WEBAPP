@@ -13,9 +13,12 @@
       <div class="app-layout">
         <aside class="sidebar">
           <div class="sidebar-top">
-            <div class="brand">
-              <h4>7MilaCaffe</h4>
-              <p>Virtual Cash Desk</p>
+            <div class="brand brand-with-logo">
+              <img src="{{ url_for('static', filename='img/7milacaffe_logo.jpg') }}" alt="Logo 7MilaCaffè" class="brand-logo">
+              <div class="brand-copy">
+                <h4>7MilaCaffè</h4>
+                <p>{{ punto_vendita_corrente.nome if punto_vendita_corrente else 'Punto vendita' }}</p>
+              </div>
             </div>
             <button type="button" id="sidebarToggle" class="btn btn-sm btn-outline-light sidebar-toggle" title="Comprimi menu" aria-label="Comprimi menu laterale" aria-expanded="true">
               <i class="bi bi-chevron-double-left"></i>
@@ -50,17 +53,25 @@
               <i class="bi bi-gear-fill nav-icon"></i><span class="nav-text">Impostazioni</span>
             </a>
           </nav>
+          <form method="post" action="{{ url_for('auth.logout') }}" class="sidebar-logout">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="nav-link nav-link-button" title="Esci dall'applicazione">
+              <i class="bi bi-box-arrow-left nav-icon"></i><span class="nav-text">Esci</span>
+            </button>
+          </form>
         </aside>
         <main class="main-content">
           <header class="topbar">
-            <div>
-              <strong>{{ current_user.username }}</strong>
-              <span class="text-muted small">({{ current_user.ruolo.nome }})</span>
+            <div class="topbar-store">
+              <i class="bi bi-geo-alt-fill"></i>
+              {{ punto_vendita_corrente.indirizzo_completo if punto_vendita_corrente else 'Punto vendita da selezionare' }}
             </div>
-            <form method="post" action="{{ url_for('auth.logout') }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="btn btn-outline-light btn-sm">Logout</button>
-            </form>
+            <div class="topbar-actions">
+              <span class="active-user"><i class="bi bi-person-circle"></i> {{ current_user.username }}</span>
+              <button type="button" id="fullscreenToggle" class="btn btn-outline-light btn-sm" title="Schermo intero" aria-label="Attiva schermo intero">
+                <i class="bi bi-arrows-fullscreen"></i><span class="d-none d-md-inline ms-1">Schermo intero</span>
+              </button>
+            </div>
           </header>
 
           {% with messages = get_flashed_messages(with_categories=true) %}
@@ -121,6 +132,22 @@
           setCollapsed(collapsed);
           localStorage.setItem(storageKey, collapsed ? "1" : "0");
         });
+      })();
+      (() => {
+        const toggle = document.getElementById("fullscreenToggle");
+        if (!toggle) return;
+        const icon = toggle.querySelector("i");
+        const sync = () => {
+          const active = Boolean(document.fullscreenElement);
+          toggle.title = active ? "Esci da schermo intero" : "Schermo intero";
+          toggle.setAttribute("aria-label", toggle.title);
+          icon.className = active ? "bi bi-fullscreen-exit" : "bi bi-arrows-fullscreen";
+        };
+        toggle.addEventListener("click", async () => {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else await document.documentElement.requestFullscreen();
+        });
+        document.addEventListener("fullscreenchange", sync);
       })();
     </script>
     {% block scripts %}{% endblock %}

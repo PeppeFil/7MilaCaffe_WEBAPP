@@ -6,18 +6,20 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 from sqlalchemy import func
 
-from app.models import InventoryMovement, Product, Sale, SaleItem
+from app.models import InventoryMovement, Product, Sale, SaleItem, StoreInventory
+from app.utils.timezones import rome_day_bounds_utc, utc_to_rome
 
 
-def csv_vendite_giornaliere(data: datetime | None = None) -> str:
-    riferimento = (data or datetime.now()).replace(hour=0, minute=0, second=0, microsecond=0)
-    fine = riferimento + timedelta(days=1)
+def csv_vendite_giornaliere(punto_vendita_id: int | None = None) -> str:
+    riferimento, fine = rome_day_bounds_utc()
 
-    vendite = (
+    query = (
         Sale.query.filter(Sale.data_ora >= riferimento, Sale.data_ora < fine)
         .order_by(Sale.data_ora.asc())
-        .all()
     )
+    if punto_vendita_id:
+        query = query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    vendite = query.all()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["id_vendita", "data_ora", "totale_lordo", "sconto", "totale_netto", "metodo", "stato"])
@@ -28,8 +30,17 @@ def csv_vendite_giornaliere(data: datetime | None = None) -> str:
     return output.getvalue()
 
 
-def csv_magazzino_attuale() -> str:
-    prodotti = Product.query.order_by(Product.nome.asc()).all()
+def csv_magazzino_attuale(punto_vendita_id: int | None = None) -> str:
+    query = Product.query
+    if punto_vendita_id:
+        query = query.join(StoreInventory, StoreInventory.prodotto_id == Product.id).filter(
+            StoreInventory.punto_vendita_id == punto_vendita_id
+        )
+    prodotti = query.order_by(Product.nome.asc()).all()
+    giacenze = {
+        row.prodotto_id: row
+        for row in StoreInventory.query.filter_by(punto_vendita_id=punto_vendita_id).all()
+    } if punto_vendita_id else {}
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["id", "nome", "categoria", "marca", "giacenza", "scorta_minima", "stato"])
@@ -40,16 +51,19 @@ def csv_magazzino_attuale() -> str:
                 p.nome,
                 p.categoria.nome if p.categoria else "",
                 p.brand.nome if p.brand else "",
-                p.quantita_disponibile,
-                p.quantita_minima_alert,
+                giacenze[p.id].quantita_disponibile if p.id in giacenze else p.quantita_disponibile,
+                giacenze[p.id].quantita_minima_alert if p.id in giacenze else p.quantita_minima_alert,
                 p.stato_disponibilita,
             ]
         )
     return output.getvalue()
 
 
-def csv_movimenti_magazzino() -> str:
-    movimenti = InventoryMovement.query.order_by(InventoryMovement.data_ora.desc()).all()
+def csv_movimenti_magazzino(punto_vendita_id: int | None = None) -> str:
+    query = InventoryMovement.query.order_by(InventoryMovement.data_ora.desc())
+    if punto_vendita_id:
+        query = query.filter(InventoryMovement.punto_vendita_id == punto_vendita_id)
+    movimenti = query.all()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(
@@ -80,11 +94,21 @@ def csv_movimenti_magazzino() -> str:
     return output.getvalue()
 
 
-def csv_sotto_scorta() -> str:
-    prodotti = Product.query.filter(
+def csv_sotto_scorta(punto_vendita_id: int | None = None) -> str:
+    query = Product.query.filter(
         Product.attivo.is_(True),
         Product.quantita_disponibile <= Product.quantita_minima_alert,
-    ).all()
+    )
+    if punto_vendita_id:
+        query = (
+            Product.query.join(StoreInventory, StoreInventory.prodotto_id == Product.id)
+            .filter(
+                Product.attivo.is_(True),
+                StoreInventory.punto_vendita_id == punto_vendita_id,
+                StoreInventory.quantita_disponibile <= StoreInventory.quantita_minima_alert,
+            )
+        )
+    prodotti = query.all()
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(["id", "nome", "giacenza", "scorta_minima", "categoria", "marca"])
@@ -102,8 +126,8 @@ def csv_sotto_scorta() -> str:
     return output.getvalue()
 
 
-def csv_prodotti_piu_venduti() -> str:
-    records = (
+def csv_prodotti_piu_venduti(punto_vendita_id: int | None = None) -> str:
+    query = (
         Product.query.join(SaleItem, Product.id == SaleItem.prodotto_id)
         .join(Sale, Sale.id == SaleItem.vendita_id)
         .filter(Sale.stato == "completata")
@@ -114,8 +138,10 @@ def csv_prodotti_piu_venduti() -> str:
         )
         .group_by(Product.nome)
         .order_by(func.sum(SaleItem.quantita).desc())
-        .all()
     )
+    if punto_vendita_id:
+        query = query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    records = query.all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -125,10 +151,12 @@ def csv_prodotti_piu_venduti() -> str:
     return output.getvalue()
 
 
-def pdf_vendite_giornaliere(data: datetime | None = None) -> bytes:
-    riferimento = (data or datetime.now()).replace(hour=0, minute=0, second=0, microsecond=0)
-    fine = riferimento + timedelta(days=1)
-    vendite = Sale.query.filter(Sale.data_ora >= riferimento, Sale.data_ora < fine).all()
+def pdf_vendite_giornaliere(data: datetime | None = None, punto_vendita_id: int | None = None) -> bytes:
+    riferimento, fine = rome_day_bounds_utc(data)
+    query = Sale.query.filter(Sale.data_ora >= riferimento, Sale.data_ora < fine)
+    if punto_vendita_id:
+        query = query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    vendite = query.all()
 
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
@@ -136,7 +164,7 @@ def pdf_vendite_giornaliere(data: datetime | None = None) -> bytes:
 
     y = height - 40
     pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(40, y, f"Report vendite giornaliere - {riferimento.date().isoformat()}")
+    pdf.drawString(40, y, f"Report vendite giornaliere - {utc_to_rome(riferimento).date().isoformat()}")
     y -= 30
 
     pdf.setFont("Helvetica", 10)
@@ -144,7 +172,7 @@ def pdf_vendite_giornaliere(data: datetime | None = None) -> bytes:
     for v in vendite:
         totale += float(v.totale_netto)
         line = (
-            f"Vendita #{v.id} | {v.data_ora.strftime('%H:%M')} | "
+            f"Vendita #{v.id} | {utc_to_rome(v.data_ora).strftime('%H:%M')} | "
             f"Totale: {v.totale_netto} | Pagamento: {v.metodo_pagamento} | Stato: {v.stato}"
         )
         pdf.drawString(40, y, line[:120])
