@@ -95,6 +95,23 @@ PREZZI_VENDITA_MANUALI = {
 }
 
 
+# Le fatture del catalogo riportano gli imponibili. Nel gestionale il costo
+# d'acquisto viene invece conservato IVA inclusa, per avere margini e valore
+# di magazzino confrontabili con i prezzi di vendita al pubblico.
+ALIQUOTE_IVA_ACQUISTO = {
+    "Capsule": Decimal("22"),
+    "Cialde": Decimal("22"),
+    "Capsule solubili": Decimal("10"),
+}
+
+
+def _costo_iva_inclusa(costo_imponibile: Decimal, categoria: str) -> Decimal:
+    aliquota = ALIQUOTE_IVA_ACQUISTO[categoria]
+    return (costo_imponibile * (Decimal("1") + aliquota / Decimal("100"))).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
+
+
 def _product(
     barcode: str,
     nome: str,
@@ -115,7 +132,7 @@ def _product(
         "category": category,
         "compatibility": compatibility,
         "formato": formato,
-        "costo": Decimal(costo),
+        "costo": _costo_iva_inclusa(Decimal(costo), category),
         "quantita": quantita,
         "image": IMMAGINI_PRODOTTI.get(barcode, image),
     }
