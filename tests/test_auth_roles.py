@@ -7,6 +7,12 @@ def test_login_success(client):
     assert b"Cassa" in response.data
 
 
+def test_login_username_is_case_insensitive(client):
+    response = login(client, "AdMiN", "admin123")
+    assert response.status_code == 200
+    assert b"Cassa" in response.data
+
+
 def test_operator_forbidden_on_admin_route(client):
     login(client, "operatore", "operator123")
     response = client.get("/prodotti/nuovo")

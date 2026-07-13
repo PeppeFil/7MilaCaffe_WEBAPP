@@ -21,6 +21,7 @@ CREATE TABLE users (
     FOREIGN KEY (ruolo_id) REFERENCES roles(id)
 );
 CREATE INDEX ix_users_username ON users (username);
+CREATE UNIQUE INDEX uq_users_username_lower ON users (lower(username));
 CREATE INDEX ix_users_email ON users (email);
 CREATE INDEX ix_users_ruolo_id ON users (ruolo_id);
 CREATE INDEX ix_users_attivo ON users (attivo);
