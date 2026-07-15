@@ -1,104 +1,505 @@
 {% extends "base.html" %}
 {% block title %}Movimenti | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header">
-  <h2>Movimenti di Magazzino</h2>
-  <p>Storico movimenti carico/scarico e rettifiche inventariali.</p>
+{% set movement_labels = {
+  'carico': 'Carico merce',
+  'scarico_manuale': 'Scarico manuale',
+  'scarico_vendita': 'Vendita',
+  'rettifica': 'Rettifica inventario',
+  'reso': 'Reso',
+  'omaggio': 'Omaggio',
+  'danneggiato': 'Prodotto danneggiato',
+  'ripristino_annullo_vendita': 'Ripristino vendita annullata'
+} %}
+{% set movement_icons = {
+  'carico': 'bi-box-arrow-in-down',
+  'scarico_manuale': 'bi-box-arrow-up',
+  'scarico_vendita': 'bi-receipt',
+  'rettifica': 'bi-sliders2',
+  'reso': 'bi-arrow-counterclockwise',
+  'omaggio': 'bi-gift',
+  'danneggiato': 'bi-exclamation-diamond',
+  'ripristino_annullo_vendita': 'bi-arrow-repeat'
+} %}
+
+<section class="movements-page" aria-labelledby="movementsTitle">
+  <header class="movements-header">
+    <div>
+      <p class="movements-eyebrow">Registro scorte</p>
+      <h2 id="movementsTitle">Movimenti di Magazzino</h2>
+      <p>Entrate, uscite e rettifiche del punto vendita attualmente selezionato.</p>
+    </div>
+    {% if current_user.has_role('Admin') %}
+      <button class="btn movements-new-button" type="button" data-bs-toggle="offcanvas" data-bs-target="#newMovementPanel" aria-controls="newMovementPanel">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        Nuovo movimento
+      </button>
+    {% endif %}
+  </header>
+
+  <div class="movements-kpis" aria-label="Riepilogo del periodo">
+    <article class="movements-kpi is-positive">
+      <span class="movements-kpi-icon"><i class="bi bi-arrow-down-left" aria-hidden="true"></i></span>
+      <div>
+        <small>Entrate periodo</small>
+        <strong id="movementEntriesKpi">0 pz</strong>
+        <span>Quantità caricata</span>
+      </div>
+    </article>
+    <article class="movements-kpi is-negative">
+      <span class="movements-kpi-icon"><i class="bi bi-arrow-up-right" aria-hidden="true"></i></span>
+      <div>
+        <small>Uscite periodo</small>
+        <strong id="movementExitsKpi">0 pz</strong>
+        <span>Quantità scaricata</span>
+      </div>
+    </article>
+    <article class="movements-kpi is-neutral">
+      <span class="movements-kpi-icon"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></span>
+      <div>
+        <small>Variazione netta</small>
+        <strong id="movementNetKpi">0 pz</strong>
+        <span id="movementPeriodLabel">Questo mese</span>
+      </div>
+    </article>
+  </div>
+
+  <div class="movements-toolbar panel-card">
+    <div class="movements-period-row">
+      <div class="movements-period-buttons" role="group" aria-label="Periodo movimenti">
+        <button type="button" class="movements-period-button" data-movement-period="today">Oggi</button>
+        <button type="button" class="movements-period-button" data-movement-period="7days">Ultimi 7 giorni</button>
+        <button type="button" class="movements-period-button active" data-movement-period="month" aria-pressed="true">Questo mese</button>
+        <button type="button" class="movements-period-button" data-movement-period="custom">Personalizzato</button>
+      </div>
+      <div class="movements-custom-dates" id="movementCustomDates" hidden>
+        <label>
+          <span>Dal</span>
+          <input type="date" class="form-control" id="movementDateFrom" value="{{ filtri.get('data_da', '') }}">
+        </label>
+        <span aria-hidden="true">—</span>
+        <label>
+          <span>Al</span>
+          <input type="date" class="form-control" id="movementDateTo" value="{{ filtri.get('data_a', '') }}">
+        </label>
+      </div>
+    </div>
+
+    <div class="movements-filter-grid" aria-label="Filtri movimenti">
+      <label>
+        <span>Tipo</span>
+        <select class="form-select" id="movementTypeFilter">
+          <option value="">Tutti i tipi</option>
+          {% for code in ['carico', 'scarico_manuale', 'scarico_vendita', 'rettifica', 'reso', 'omaggio', 'danneggiato', 'ripristino_annullo_vendita'] %}
+            <option value="{{ code }}" {% if filtri.get('tipo') == code %}selected{% endif %}>{{ movement_labels.get(code, code|replace('_', ' ')|title) }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Prodotto</span>
+        <select class="form-select" id="movementProductFilter">
+          <option value="">Tutti i prodotti</option>
+          {% for p in prodotti %}
+            <option value="{{ p.nome|lower }}" {% if filtri.get('prodotto', '')|lower == p.nome|lower %}selected{% endif %}>{{ p.nome }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        <span>Operatore</span>
+        <select class="form-select" id="movementOperatorFilter">
+          <option value="">Tutti gli operatori</option>
+        </select>
+      </label>
+      <label class="movements-reference-filter">
+        <span>Riferimento</span>
+        <span class="movements-input-icon">
+          <i class="bi bi-search" aria-hidden="true"></i>
+          <input type="search" class="form-control" id="movementReferenceFilter" placeholder="Es. Vendita #17">
+        </span>
+      </label>
+      <button type="button" class="btn movements-reset-button" id="movementResetFilters">
+        <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+        Azzera
+      </button>
+    </div>
+  </div>
+
+  <div class="movements-table-card panel-card">
+    <div class="movements-table-heading">
+      <div>
+        <h3>Registro movimenti</h3>
+        <p><strong id="movementResultCount">{{ movimenti|length }}</strong> <span id="movementResultLabel">movimenti</span> nel periodo selezionato</p>
+      </div>
+      <span class="movements-live-status"><i class="bi bi-check-circle-fill" aria-hidden="true"></i> Dati aggiornati</span>
+    </div>
+
+    <div class="movements-table-wrap">
+      <table class="table movements-table align-middle">
+        <thead>
+          <tr>
+            <th>Data e ora</th>
+            <th>Tipo</th>
+            <th>Prodotto</th>
+            <th class="text-end">Quantità</th>
+            <th>Motivo</th>
+            <th>Riferimento</th>
+            <th>Operatore</th>
+            <th><span class="visually-hidden">Dettaglio</span></th>
+          </tr>
+        </thead>
+        <tbody id="movementsTableBody">
+          {% for m in movimenti %}
+            {% set type_label = movement_labels.get(m.tipo_movimento, m.tipo_movimento|replace('_', ' ')|title) %}
+            {% set operator_name = m.operatore.username if m.operatore else '-' %}
+            {% set product_name = m.prodotto.nome if m.prodotto else '-' %}
+            <tr data-movement-row
+                data-type="{{ m.tipo_movimento }}"
+                data-product="{{ product_name|lower }}"
+                data-operator="{{ operator_name|lower }}"
+                data-reference="{{ (m.riferimento_entita or '')|lower }}"
+                data-datetime="{{ m.data_ora.isoformat() }}Z"
+                data-quantity="{{ m.quantita }}">
+              <td>
+                <time datetime="{{ m.data_ora.isoformat() }}Z">
+                  <strong>{{ m.data_ora|roma_datetime }}</strong>
+                  <span>Movimento #{{ m.id }}</span>
+                </time>
+              </td>
+              <td>
+                <span class="movements-type-badge type-{{ m.tipo_movimento }}">
+                  <i class="bi {{ movement_icons.get(m.tipo_movimento, 'bi-arrow-left-right') }}" aria-hidden="true"></i>
+                  {{ type_label }}
+                </span>
+              </td>
+              <td>
+                <strong class="movements-product-name">{{ product_name }}</strong>
+              </td>
+              <td class="text-end">
+                <strong class="movements-quantity {% if m.quantita > 0 %}is-positive{% else %}is-negative{% endif %}">
+                  {% if m.quantita > 0 %}+{% endif %}{{ m.quantita }} pz
+                </strong>
+              </td>
+              <td><span class="movements-reason">{{ m.motivo or '—' }}</span></td>
+              <td>
+                {% if m.riferimento_entita and m.riferimento_entita.startswith('vendita:') %}
+                  {% set sale_id = m.riferimento_entita.split(':', 1)[1] %}
+                  {% if sale_id.isdigit() %}
+                    <a class="movements-reference-link" href="{{ url_for('sales.detail', sale_id=sale_id|int) }}">
+                      <i class="bi bi-receipt" aria-hidden="true"></i> Vendita #{{ sale_id }}
+                    </a>
+                  {% else %}
+                    <span class="movements-reference-text">{{ m.riferimento_entita|replace('_', ' ') }}</span>
+                  {% endif %}
+                {% elif m.riferimento_entita %}
+                  <span class="movements-reference-text">{{ m.riferimento_entita|replace('_', ' ') }}</span>
+                {% else %}
+                  <span class="movements-empty-value">—</span>
+                {% endif %}
+              </td>
+              <td><span class="movements-operator"><i class="bi bi-person-circle" aria-hidden="true"></i>{{ operator_name }}</span></td>
+              <td class="text-end">
+                <button type="button" class="btn movements-detail-button" data-bs-toggle="offcanvas" data-bs-target="#movementDetailPanel" data-movement-detail="{{ m.id }}" aria-label="Apri dettaglio movimento #{{ m.id }}">
+                  <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                </button>
+              </td>
+            </tr>
+
+            <template id="movementDetail{{ m.id }}">
+              <div class="movement-detail-hero {% if m.quantita > 0 %}is-positive{% else %}is-negative{% endif %}">
+                <span class="movement-detail-icon"><i class="bi {{ movement_icons.get(m.tipo_movimento, 'bi-arrow-left-right') }}" aria-hidden="true"></i></span>
+                <div>
+                  <small>Movimento #{{ m.id }}</small>
+                  <h3>{{ type_label }}</h3>
+                  <strong>{% if m.quantita > 0 %}+{% endif %}{{ m.quantita }} pz</strong>
+                </div>
+              </div>
+              <dl class="movement-detail-list">
+                <div><dt>Prodotto</dt><dd>{{ product_name }}</dd></div>
+                <div><dt>Data e ora</dt><dd>{{ m.data_ora|roma_datetime }}</dd></div>
+                <div><dt>Operatore</dt><dd>{{ operator_name }}</dd></div>
+                <div><dt>Costo unitario</dt><dd>{% if m.costo_unitario is not none %}€ {{ "%.2f"|format(m.costo_unitario) }}{% else %}—{% endif %}</dd></div>
+                <div><dt>Motivo</dt><dd>{{ m.motivo or '—' }}</dd></div>
+                <div>
+                  <dt>Riferimento</dt>
+                  <dd>
+                    {% if m.riferimento_entita and m.riferimento_entita.startswith('vendita:') %}
+                      {% set detail_sale_id = m.riferimento_entita.split(':', 1)[1] %}
+                      {% if detail_sale_id.isdigit() %}
+                        <a class="movements-reference-link" href="{{ url_for('sales.detail', sale_id=detail_sale_id|int) }}">Vendita #{{ detail_sale_id }}</a>
+                      {% else %}{{ m.riferimento_entita|replace('_', ' ') }}{% endif %}
+                    {% else %}{{ m.riferimento_entita or '—' }}{% endif %}
+                  </dd>
+                </div>
+                <div class="movement-detail-notes"><dt>Note</dt><dd>{{ m.note or 'Nessuna nota' }}</dd></div>
+              </dl>
+            </template>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="movements-empty-state" id="movementsEmptyState" hidden>
+      <i class="bi bi-search" aria-hidden="true"></i>
+      <strong>Nessun movimento trovato</strong>
+      <span>Prova a cambiare il periodo o i filtri.</span>
+    </div>
+
+    <div class="movements-pagination" id="movementsPagination" aria-label="Paginazione movimenti">
+      <div class="table-page-size">
+        <span>Mostra</span>
+        <select id="movementsPageSize" class="form-select form-select-sm" aria-label="Righe movimenti per pagina">
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+        </select>
+        <span>righe per pagina</span>
+      </div>
+      <span id="movementsPaginationSummary"></span>
+      <nav aria-label="Pagine movimenti">
+        <button type="button" id="movementsPrevPage" aria-label="Pagina precedente"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+        <span id="movementsPageButtons"></span>
+        <button type="button" id="movementsNextPage" aria-label="Pagina successiva"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </nav>
+    </div>
+  </div>
 </section>
 
 {% if current_user.has_role('Admin') %}
-<div class="panel-card mb-3">
-  <h5>Nuovo movimento manuale</h5>
-  <form method="post" class="row g-2">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="col-md-3">
-      <select name="prodotto_id" class="form-select" required>
-        <option value="">Prodotto</option>
-        {% for p in prodotti %}
-          <option value="{{ p.id }}">{{ p.nome }} ({{ p.giacenza_corrente }})</option>
-        {% endfor %}
-      </select>
+<div class="offcanvas offcanvas-end movements-panel" tabindex="-1" id="newMovementPanel" aria-labelledby="newMovementTitle">
+  <div class="offcanvas-header">
+    <div>
+      <p class="movements-eyebrow">Aggiorna le scorte</p>
+      <h2 class="offcanvas-title" id="newMovementTitle">Nuovo movimento</h2>
+      <p>Registra un carico, uno scarico o una rettifica manuale.</p>
     </div>
-    <div class="col-md-2">
-      <select name="tipo_movimento" class="form-select" required>
-        <option value="">Tipo</option>
-        {% for t in tipi_movimento %}
-          <option value="{{ t }}">{{ t }}</option>
-        {% endfor %}
-      </select>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Chiudi"></button>
+  </div>
+  <div class="offcanvas-body" id="nuovo-movimento">
+    <div class="movements-form-notice">
+      <i class="bi bi-shield-check" aria-hidden="true"></i>
+      <span>La giacenza viene controllata prima della registrazione.</span>
     </div>
-    <div class="col-md-1">
-      <input type="number" name="quantita" class="form-control" min="-9999" max="9999" required placeholder="Qta">
-    </div>
-    <div class="col-md-2">
-      <input type="text" name="motivo" class="form-control" placeholder="Motivo">
-    </div>
-    <div class="col-md-2">
-      <input type="number" step="0.01" min="0" name="costo_unitario" class="form-control" placeholder="Costo unitario">
-    </div>
-    <div class="col-md-2">
-      <button class="btn btn-coffee w-100">Registra</button>
-    </div>
-    <div class="col-12">
-      <input type="text" name="note" class="form-control" placeholder="Note">
-    </div>
-  </form>
+    <form method="post" class="movements-new-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>
+        <span>Prodotto</span>
+        <select name="prodotto_id" class="form-select" required>
+          <option value="">Seleziona un prodotto</option>
+          {% for p in prodotti %}
+            <option value="{{ p.id }}" {% if filtri.get('prodotto_id') == (p.id|string) %}selected{% endif %}>{{ p.nome }} · Disponibili {{ p.giacenza_corrente }} pz</option>
+          {% endfor %}
+        </select>
+      </label>
+      <div class="movements-form-grid">
+        <label>
+          <span>Tipo movimento</span>
+          <select name="tipo_movimento" class="form-select" required>
+            <option value="">Seleziona il tipo</option>
+            {% for t in tipi_movimento %}
+              <option value="{{ t }}">{{ movement_labels.get(t, t|replace('_', ' ')|title) }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Quantità</span>
+          <input type="number" name="quantita" class="form-control" min="-9999" max="9999" required placeholder="0">
+        </label>
+      </div>
+      <label>
+        <span>Motivo</span>
+        <input type="text" name="motivo" class="form-control" maxlength="255" placeholder="Es. Consegna fornitore">
+      </label>
+      <label>
+        <span>Costo unitario</span>
+        <span class="movements-cost-input">
+          <i class="bi bi-currency-euro" aria-hidden="true"></i>
+          <input type="number" step="0.01" min="0" name="costo_unitario" class="form-control" placeholder="0,00">
+        </span>
+      </label>
+      <label>
+        <span>Note</span>
+        <textarea name="note" class="form-control" rows="4" placeholder="Aggiungi eventuali dettagli"></textarea>
+      </label>
+      <div class="movements-form-actions">
+        <button type="button" class="btn movements-cancel-button" data-bs-dismiss="offcanvas">Annulla</button>
+        <button class="btn movements-submit-button" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Registra movimento</button>
+      </div>
+    </form>
+  </div>
 </div>
 {% endif %}
 
-<div class="panel-card mb-3">
-  <form method="get" class="row g-2">
-    <div class="col-md-2">
-      <select name="tipo" class="form-select">
-        <option value="">Tipo</option>
-        {% for t in tipi_movimento %}
-          <option value="{{ t }}" {% if filtri.get('tipo') == t %}selected{% endif %}>{{ t }}</option>
-        {% endfor %}
-      </select>
+<div class="offcanvas offcanvas-end movements-panel movement-detail-panel" tabindex="-1" id="movementDetailPanel" aria-labelledby="movementDetailTitle">
+  <div class="offcanvas-header">
+    <div>
+      <p class="movements-eyebrow">Scheda movimento</p>
+      <h2 class="offcanvas-title" id="movementDetailTitle">Dettaglio movimento</h2>
     </div>
-    <div class="col-md-3">
-      <input type="text" class="form-control" name="prodotto" placeholder="Prodotto" value="{{ filtri.get('prodotto','') }}">
-    </div>
-    <div class="col-md-2 d-grid">
-      <button class="btn btn-outline-light">Filtra</button>
-    </div>
-  </form>
-</div>
-
-<div class="panel-card">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Data/Ora</th>
-          <th>Tipo</th>
-          <th>Prodotto</th>
-          <th>Delta</th>
-          <th>Motivo</th>
-          <th>Riferimento</th>
-          <th>Operatore</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in movimenti %}
-          <tr>
-            <td>{{ m.id }}</td>
-            <td>{{ m.data_ora|roma_datetime }}</td>
-            <td>{{ m.tipo_movimento }}</td>
-            <td>{{ m.prodotto.nome if m.prodotto else '-' }}</td>
-            <td>
-              <span class="badge {% if m.quantita > 0 %}bg-success{% else %}bg-danger{% endif %}">
-                {{ m.quantita }}
-              </span>
-            </td>
-            <td>{{ m.motivo or '-' }}</td>
-            <td>{{ m.riferimento_entita or '-' }}</td>
-            <td>{{ m.operatore.username if m.operatore else '-' }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Chiudi"></button>
   </div>
+  <div class="offcanvas-body" id="movementDetailContent"></div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const rows = Array.from(document.querySelectorAll("[data-movement-row]"));
+    const typeFilter = document.getElementById("movementTypeFilter");
+    const productFilter = document.getElementById("movementProductFilter");
+    const operatorFilter = document.getElementById("movementOperatorFilter");
+    const referenceFilter = document.getElementById("movementReferenceFilter");
+    const dateFrom = document.getElementById("movementDateFrom");
+    const dateTo = document.getElementById("movementDateTo");
+    const customDates = document.getElementById("movementCustomDates");
+    const periodButtons = Array.from(document.querySelectorAll("[data-movement-period]"));
+    const resultCount = document.getElementById("movementResultCount");
+    const resultLabel = document.getElementById("movementResultLabel");
+    const entriesKpi = document.getElementById("movementEntriesKpi");
+    const exitsKpi = document.getElementById("movementExitsKpi");
+    const netKpi = document.getElementById("movementNetKpi");
+    const periodLabel = document.getElementById("movementPeriodLabel");
+    const emptyState = document.getElementById("movementsEmptyState");
+    const pagination = document.getElementById("movementsPagination");
+    const paginationSummary = document.getElementById("movementsPaginationSummary");
+    const pageButtons = document.getElementById("movementsPageButtons");
+    const previousPage = document.getElementById("movementsPrevPage");
+    const nextPage = document.getElementById("movementsNextPage");
+    const pageSizeControl = document.getElementById("movementsPageSize");
+    let pageSize = Number(pageSizeControl.value);
+    let activePeriod = (dateFrom.value || dateTo.value) ? "custom" : "month";
+    let currentPage = 1;
+
+    const normalize = value => (value || "").toLocaleLowerCase("it-IT").trim();
+    const formatQuantity = value => `${value > 0 ? "+" : ""}${value} pz`;
+
+    Array.from(new Set(rows.map(row => row.dataset.operator).filter(value => value && value !== "-")))
+      .sort((a, b) => a.localeCompare(b, "it"))
+      .forEach(operator => {
+        const option = document.createElement("option");
+        option.value = operator;
+        option.textContent = operator.charAt(0).toLocaleUpperCase("it-IT") + operator.slice(1);
+        operatorFilter.append(option);
+      });
+
+    const getPeriodBounds = () => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (activePeriod === "today") return [today, new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)];
+      if (activePeriod === "7days") return [new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)];
+      if (activePeriod === "month") return [new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 1)];
+
+      const start = dateFrom.value ? new Date(`${dateFrom.value}T00:00:00`) : null;
+      const end = dateTo.value ? new Date(`${dateTo.value}T00:00:00`) : null;
+      if (end) end.setDate(end.getDate() + 1);
+      return [start, end];
+    };
+
+    const matchesFilters = row => {
+      const [periodStart, periodEnd] = getPeriodBounds();
+      const movementDate = new Date(row.dataset.datetime);
+      const dateMatches = (!periodStart || movementDate >= periodStart) && (!periodEnd || movementDate < periodEnd);
+      const typeMatches = !typeFilter.value || row.dataset.type === typeFilter.value;
+      const productMatches = !productFilter.value || row.dataset.product === productFilter.value;
+      const operatorMatches = !operatorFilter.value || row.dataset.operator === operatorFilter.value;
+      const referenceMatches = !normalize(referenceFilter.value) || normalize(row.dataset.reference).includes(normalize(referenceFilter.value).replace("#", "").replace("vendita ", "vendita:"));
+      return dateMatches && typeMatches && productMatches && operatorMatches && referenceMatches;
+    };
+
+    const filteredRows = () => rows.filter(matchesFilters);
+
+    const renderPageButtons = totalPages => {
+      pageButtons.replaceChildren();
+      for (let page = 1; page <= totalPages; page += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = page;
+        button.classList.toggle("active", page === currentPage);
+        button.setAttribute("aria-label", `Pagina ${page}`);
+        if (page === currentPage) button.setAttribute("aria-current", "page");
+        button.addEventListener("click", () => { currentPage = page; render(); });
+        pageButtons.append(button);
+      }
+    };
+
+    const render = () => {
+      const matches = filteredRows();
+      const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * pageSize;
+      const end = Math.min(start + pageSize, matches.length);
+      const quantities = matches.map(row => Number(row.dataset.quantity) || 0);
+      const entries = quantities.filter(value => value > 0).reduce((sum, value) => sum + value, 0);
+      const exits = Math.abs(quantities.filter(value => value < 0).reduce((sum, value) => sum + value, 0));
+      const net = quantities.reduce((sum, value) => sum + value, 0);
+
+      rows.forEach(row => { row.hidden = true; });
+      matches.slice(start, end).forEach(row => { row.hidden = false; });
+
+      entriesKpi.textContent = `${entries} pz`;
+      exitsKpi.textContent = `${exits} pz`;
+      netKpi.textContent = formatQuantity(net);
+      netKpi.classList.toggle("is-positive", net > 0);
+      netKpi.classList.toggle("is-negative", net < 0);
+      resultCount.textContent = matches.length;
+      resultLabel.textContent = matches.length === 1 ? "movimento" : "movimenti";
+      emptyState.hidden = matches.length > 0;
+      pagination.hidden = matches.length === 0;
+      paginationSummary.textContent = matches.length ? `${start + 1}–${end} di ${matches.length}` : "";
+      previousPage.disabled = currentPage === 1;
+      nextPage.disabled = currentPage === totalPages;
+      renderPageButtons(totalPages);
+    };
+
+    const setPeriod = period => {
+      activePeriod = period;
+      currentPage = 1;
+      customDates.hidden = period !== "custom";
+      const labels = { today: "Oggi", "7days": "Ultimi 7 giorni", month: "Questo mese", custom: "Periodo personalizzato" };
+      periodLabel.textContent = labels[period];
+      periodButtons.forEach(button => {
+        const active = button.dataset.movementPeriod === period;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      render();
+    };
+
+    periodButtons.forEach(button => button.addEventListener("click", () => setPeriod(button.dataset.movementPeriod)));
+    [typeFilter, productFilter, operatorFilter].forEach(control => control.addEventListener("change", () => { currentPage = 1; render(); }));
+    referenceFilter.addEventListener("input", () => { currentPage = 1; render(); });
+    pageSizeControl.addEventListener("change", () => { pageSize = Number(pageSizeControl.value); currentPage = 1; render(); });
+    [dateFrom, dateTo].forEach(control => control.addEventListener("change", () => { activePeriod = "custom"; currentPage = 1; render(); }));
+    previousPage.addEventListener("click", () => { if (currentPage > 1) { currentPage -= 1; render(); } });
+    nextPage.addEventListener("click", () => {
+      const totalPages = Math.max(1, Math.ceil(filteredRows().length / pageSize));
+      if (currentPage < totalPages) { currentPage += 1; render(); }
+    });
+
+    document.getElementById("movementResetFilters").addEventListener("click", () => {
+      typeFilter.value = "";
+      productFilter.value = "";
+      operatorFilter.value = "";
+      referenceFilter.value = "";
+      dateFrom.value = "";
+      dateTo.value = "";
+      setPeriod("month");
+    });
+
+    document.addEventListener("click", event => {
+      const trigger = event.target.closest("[data-movement-detail]");
+      if (!trigger) return;
+      const template = document.getElementById(`movementDetail${trigger.dataset.movementDetail}`);
+      const content = document.getElementById("movementDetailContent");
+      if (template && content) content.replaceChildren(template.content.cloneNode(true));
+    });
+
+    setPeriod(activePeriod);
+
+    const newMovementPanel = document.getElementById("newMovementPanel");
+    if (newMovementPanel && (window.location.hash === "#nuovo-movimento" || new URLSearchParams(window.location.search).has("prodotto_id"))) {
+      bootstrap.Offcanvas.getOrCreateInstance(newMovementPanel).show();
+    }
+  })();
+</script>
 {% endblock %}

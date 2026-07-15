@@ -1,86 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Vendita #{{ vendita.id }} | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-  <div>
-    <h2>Dettaglio Vendita #{{ vendita.id }}</h2>
-    <p>{{ vendita.data_ora|roma_datetime }} - Stato: <strong>{{ vendita.stato }}</strong></p>
-  </div>
-  <div class="d-flex gap-2">
-    <a href="{{ url_for('cash.ricevuta', sale_id=vendita.id) }}" class="btn btn-outline-light" target="_blank">Ricevuta</a>
-    <a href="{{ url_for('sales.index') }}" class="btn btn-outline-light">Torna elenco</a>
-  </div>
+<section class="sale-detail-page" aria-labelledby="saleDetailPageTitle">
+  <header class="sale-detail-page-header">
+    <div>
+      <p class="sales-eyebrow">Storico vendite</p>
+      <h1 id="saleDetailPageTitle">Dettaglio vendita #{{ vendita.id }}</h1>
+      <p>Riepilogo completo della transazione e delle righe prodotto.</p>
+    </div>
+    <a href="{{ url_for('sales.index') }}" class="btn sale-detail-back-button"><i class="bi bi-arrow-left" aria-hidden="true"></i> Torna alle vendite</a>
+  </header>
+  {% include "sales/_detail_content.html" %}
 </section>
-
-<div class="row g-3 mb-3">
-  <div class="col-md-3">
-    <div class="kpi-card"><p>Totale lordo</p><h5>EUR {{ "%.2f"|format(vendita.totale_lordo) }}</h5></div>
-  </div>
-  <div class="col-md-3">
-    <div class="kpi-card"><p>Sconto</p><h5>{{ vendita.sconto_tipo }} / {{ "%.2f"|format(vendita.sconto_valore) }}</h5></div>
-  </div>
-  <div class="col-md-3">
-    <div class="kpi-card"><p>Totale netto</p><h5>EUR {{ "%.2f"|format(vendita.totale_netto) }}</h5></div>
-  </div>
-  <div class="col-md-3">
-    <div class="kpi-card"><p>IVA calcolata</p><h5>EUR {{ "%.2f"|format(vendita.totale_iva) }}</h5></div>
-  </div>
-</div>
-
-<div class="panel-card mb-3">
-  <div class="row g-2">
-    <div class="col-md-4"><strong>Cliente:</strong> {{ vendita.customer.display_name if vendita.customer else 'Generico' }}</div>
-    <div class="col-md-4"><strong>IVA inclusa:</strong> EUR {{ "%.2f"|format(vendita.totale_iva or 0) }}</div>
-    <div class="col-md-4"><strong>Pagamento:</strong> {{ vendita.metodo_pagamento }}</div>
-  </div>
-</div>
-
-<div class="panel-card">
-  <h5>Righe vendita</h5>
-  <div class="table-responsive">
-    <table class="table align-middle">
-      <thead>
-        <tr>
-          <th>Prodotto</th>
-          <th>Quantita</th>
-          <th>Prezzo unitario</th>
-          <th>Totale</th>
-          <th>Aliquota</th>
-          <th>IVA inclusa</th>
-          <th>Costo snapshot</th>
-          <th>Margine riga</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in vendita.righe %}
-          <tr>
-            <td>{{ r.prodotto.nome if r.prodotto else '-' }}</td>
-            <td>{{ r.quantita }}</td>
-            <td>EUR {{ "%.2f"|format(r.prezzo_unitario) }}</td>
-            <td>EUR {{ "%.2f"|format(r.totale_netto) }}</td>
-            <td>{{ "%.2f"|format(r.aliquota_iva_snapshot) }}%</td>
-            <td>EUR {{ "%.2f"|format(r.totale_iva) }}</td>
-            <td>EUR {{ "%.2f"|format(r.costo_unitario_snapshot) }}</td>
-            <td>EUR {{ "%.2f"|format(r.margine_riga) }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-{% if current_user.has_role('Admin') and vendita.stato == 'completata' %}
-<div class="panel-card mt-3">
-  <h5>Annulla vendita</h5>
-  <form method="post" action="{{ url_for('sales.annulla', sale_id=vendita.id) }}" class="row g-2" onsubmit="return confirm('Confermi annullamento vendita e ripristino stock?');">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="col-md-8">
-      <input type="text" name="motivo" class="form-control" value="Annullamento da dettaglio vendita">
-    </div>
-    <div class="col-md-4 d-grid">
-      <button class="btn btn-outline-danger">Annulla vendita</button>
-    </div>
-  </form>
-</div>
-{% endif %}
 {% endblock %}

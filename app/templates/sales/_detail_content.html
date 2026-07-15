@@ -1,0 +1,100 @@
+<section class="sale-detail-sheet" id="saleDetailPanelContent">
+  <header class="sale-detail-summary">
+    <div class="sale-detail-summary-top">
+      <div>
+        <p class="sales-eyebrow">Vendita #{{ vendita.id }}</p>
+        <h2>€ {{ "%.2f"|format(vendita.totale_netto) }}</h2>
+        <time datetime="{{ vendita.data_ora.isoformat() }}Z">{{ vendita.data_ora|roma_datetime }}</time>
+      </div>
+      <span class="sales-status-badge is-{{ vendita.stato }}">
+        <i class="bi {% if vendita.stato == 'completata' %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %}" aria-hidden="true"></i>
+        {{ vendita.stato|title }}
+      </span>
+    </div>
+    <div class="sale-detail-actions">
+      <a class="btn sale-detail-action" href="{{ url_for('cash.ricevuta', sale_id=vendita.id) }}" target="_blank" rel="noopener">
+        <i class="bi bi-printer" aria-hidden="true"></i> Stampa ricevuta
+      </a>
+      <a class="btn sale-detail-action" href="{{ url_for('report.export_pdf') }}">
+        <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF giornaliero
+      </a>
+    </div>
+  </header>
+
+  <div class="sale-detail-meta-grid">
+    <article>
+      <span><i class="bi bi-person" aria-hidden="true"></i> Cliente</span>
+      <strong>{{ vendita.customer.display_name if vendita.customer else 'Cliente generico' }}</strong>
+    </article>
+    <article>
+      <span><i class="bi {% if vendita.metodo_pagamento == 'contanti' %}bi-cash-stack{% elif vendita.metodo_pagamento == 'carta' %}bi-credit-card{% elif vendita.metodo_pagamento == 'bonifico' %}bi-bank{% else %}bi-wallet2{% endif %}" aria-hidden="true"></i> Pagamento</span>
+      <strong>{{ vendita.metodo_pagamento|replace('_', ' ')|title }}</strong>
+    </article>
+    <article>
+      <span><i class="bi bi-person-badge" aria-hidden="true"></i> Operatore</span>
+      <strong>{{ vendita.operatore.username if vendita.operatore else '—' }}</strong>
+    </article>
+  </div>
+
+  <div class="sale-detail-section">
+    <div class="sale-detail-section-heading">
+      <h3>Prodotti</h3>
+      <span>{{ vendita.righe|length }} {% if vendita.righe|length == 1 %}riga{% else %}righe{% endif %}</span>
+    </div>
+    <div class="sale-detail-products">
+      {% for r in vendita.righe %}
+        <article class="sale-detail-product">
+          {% if r.prodotto and r.prodotto.immagine_url %}
+            <img src="{{ r.prodotto.immagine_url }}" alt="{{ r.prodotto.nome }}">
+          {% else %}
+            <span class="sale-detail-product-fallback"><i class="bi bi-cup-hot" aria-hidden="true"></i></span>
+          {% endif %}
+          <div>
+            <strong>{{ r.prodotto.nome if r.prodotto else 'Prodotto non disponibile' }}</strong>
+            <span>{{ r.quantita }} × € {{ "%.2f"|format(r.prezzo_unitario) }}</span>
+            <small>IVA {{ "%.0f"|format(r.aliquota_iva_snapshot) }}% inclusa · € {{ "%.2f"|format(r.totale_iva) }}</small>
+            {% if current_user.has_role('Admin') %}
+              <small>Costo snapshot € {{ "%.2f"|format(r.costo_unitario_snapshot) }} · Margine € {{ "%.2f"|format(r.margine_riga) }}</small>
+            {% endif %}
+          </div>
+          <strong class="sale-detail-line-total">€ {{ "%.2f"|format(r.totale_netto) }}</strong>
+        </article>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="sale-detail-totals" aria-label="Totali vendita">
+    <div><span>Totale lordo</span><strong>€ {{ "%.2f"|format(vendita.totale_lordo) }}</strong></div>
+    <div>
+      <span>Sconto{% if vendita.sconto_tipo and vendita.sconto_tipo != 'nessuno' %} · {{ vendita.sconto_tipo|title }}{% endif %}</span>
+      <strong>
+        {% if vendita.sconto_tipo == 'percentuale' %}{{ "%.2f"|format(vendita.sconto_valore or 0) }}%
+        {% elif vendita.sconto_tipo == 'fisso' %}€ {{ "%.2f"|format(vendita.sconto_valore or 0) }}
+        {% else %}€ 0,00{% endif %}
+      </strong>
+    </div>
+    <div><span>IVA inclusa</span><strong>€ {{ "%.2f"|format(vendita.totale_iva or 0) }}</strong></div>
+    <div class="sale-detail-grand-total"><span>Totale</span><strong>€ {{ "%.2f"|format(vendita.totale_netto) }}</strong></div>
+  </div>
+
+  {% if vendita.note_cliente %}
+    <div class="sale-detail-note">
+      <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+      <div><span>Nota cliente</span><p>{{ vendita.note_cliente }}</p></div>
+    </div>
+  {% endif %}
+
+  {% if current_user.has_role('Admin') and vendita.stato == 'completata' %}
+    <div class="sale-detail-cancel">
+      <div>
+        <strong>Annulla vendita</strong>
+        <span>Le quantità saranno ripristinate automaticamente in magazzino.</span>
+      </div>
+      <form method="post" action="{{ url_for('sales.annulla', sale_id=vendita.id) }}" onsubmit="return confirm('Confermi annullamento vendita e ripristino stock?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="motivo" value="Annullamento da dettaglio vendita">
+        <button class="btn" type="submit"><i class="bi bi-x-octagon" aria-hidden="true"></i> Annulla vendita</button>
+      </form>
+    </div>
+  {% endif %}
+</section>

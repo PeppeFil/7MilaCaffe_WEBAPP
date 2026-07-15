@@ -1,85 +1,331 @@
 {% extends "base.html" %}
 {% block title %}Magazzino | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header">
-  <h2>Magazzino</h2>
-  <p>Monitoraggio giacenze, stati disponibilita e alert scorte.</p>
-</section>
+{% set inventory = namespace(disponibili=0, sotto_scorta=0, esauriti=0, valore_costo=0, valore_vendita=0) %}
+{% for p in prodotti %}
+  {% set quantita = p.giacenza_corrente if p.giacenza_corrente > 0 else 0 %}
+  {% set inventory.valore_costo = inventory.valore_costo + (quantita * p.prezzo_acquisto) %}
+  {% set inventory.valore_vendita = inventory.valore_vendita + (quantita * p.prezzo_vendita) %}
+  {% if p.giacenza_corrente <= 0 %}
+    {% set inventory.esauriti = inventory.esauriti + 1 %}
+  {% elif p.giacenza_corrente <= p.scorta_minima_corrente %}
+    {% set inventory.sotto_scorta = inventory.sotto_scorta + 1 %}
+  {% else %}
+    {% set inventory.disponibili = inventory.disponibili + 1 %}
+  {% endif %}
+{% endfor %}
 
-<div class="panel-card mb-3">
-  <form method="get" class="row g-2">
-    <div class="col-md-3">
-      <select name="categoria_id" class="form-select">
-        <option value="">Categoria</option>
-        {% for c in categorie %}
-          <option value="{{ c.id }}" {% if filtri.get('categoria_id') == (c.id|string) %}selected{% endif %}>{{ c.nome }}</option>
-        {% endfor %}
-      </select>
+<section class="inventory-page" aria-labelledby="inventoryTitle">
+  <header class="page-header inventory-heading">
+    <div>
+      <p class="inventory-eyebrow">Controllo scorte</p>
+      <h2 id="inventoryTitle">Magazzino</h2>
+      <p>Giacenze e valori del punto vendita attualmente selezionato.</p>
     </div>
-    <div class="col-md-3">
-      <select name="marca_id" class="form-select">
-        <option value="">Marca</option>
-        {% for m in marche %}
-          <option value="{{ m.id }}" {% if filtri.get('marca_id') == (m.id|string) %}selected{% endif %}>{{ m.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-3">
-      <select name="compatibilita_id" class="form-select">
-        <option value="">Compatibilita</option>
-        {% for comp in compatibilita %}
-          <option value="{{ comp.id }}" {% if filtri.get('compatibilita_id') == (comp.id|string) %}selected{% endif %}>{{ comp.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-3 d-grid">
-      <button class="btn btn-outline-light">Filtra</button>
-    </div>
-  </form>
-</div>
+    <a href="{{ url_for('inventory.movimenti') }}" class="btn inventory-header-button">
+      <i class="bi bi-arrow-left-right" aria-hidden="true"></i> Storico movimenti
+    </a>
+  </header>
 
-{% if sotto_scorta %}
-  <div class="alert alert-warning">
-    <strong>Attenzione:</strong> {{ sotto_scorta|length }} prodotti sotto scorta minima.
+  <div class="inventory-kpis" aria-label="Riepilogo magazzino">
+    <article class="inventory-kpi">
+      <span class="inventory-kpi-icon"><i class="bi bi-box-seam" aria-hidden="true"></i></span>
+      <div><small>Prodotti attivi</small><strong>{{ prodotti|length }}</strong><span>Anagrafiche visualizzate</span></div>
+    </article>
+    <article class="inventory-kpi is-success">
+      <span class="inventory-kpi-icon"><i class="bi bi-check2-circle" aria-hidden="true"></i></span>
+      <div><small>Disponibili</small><strong>{{ inventory.disponibili }}</strong><span>Oltre la soglia minima</span></div>
+    </article>
+    <article class="inventory-kpi is-warning">
+      <span class="inventory-kpi-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+      <div><small>Sotto scorta</small><strong>{{ inventory.sotto_scorta }}</strong><span>Da controllare</span></div>
+    </article>
+    <article class="inventory-kpi is-danger">
+      <span class="inventory-kpi-icon"><i class="bi bi-x-circle" aria-hidden="true"></i></span>
+      <div><small>Esauriti</small><strong>{{ inventory.esauriti }}</strong><span>Disponibilità zero</span></div>
+    </article>
+    <article class="inventory-kpi inventory-kpi-value">
+      <span class="inventory-kpi-icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span>
+      <div><small>Valore di costo</small><strong>€ {{ "%.2f"|format(inventory.valore_costo) }}</strong><span>Valore delle giacenze</span></div>
+    </article>
+    <article class="inventory-kpi inventory-kpi-value">
+      <span class="inventory-kpi-icon"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
+      <div><small>Valore di vendita</small><strong>€ {{ "%.2f"|format(inventory.valore_vendita) }}</strong><span>Potenziale a scaffale</span></div>
+    </article>
   </div>
-{% endif %}
 
-<div class="panel-card">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead>
-        <tr>
-          <th>Prodotto</th>
-          <th>Categoria</th>
-          <th>Marca</th>
-          <th>Compatibilita</th>
-          <th>Disponibile</th>
-          <th>Scorta minima</th>
-          <th>Stato</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in prodotti %}
+  <div class="inventory-toolbar-card">
+    <div class="inventory-quick-filters" role="group" aria-label="Filtri rapidi disponibilità">
+      <button type="button" class="active" data-stock-filter="all" aria-pressed="true">
+        Tutti <span>{{ prodotti|length }}</span>
+      </button>
+      <button type="button" data-stock-filter="available" aria-pressed="false">
+        Disponibili <span>{{ inventory.disponibili }}</span>
+      </button>
+      <button type="button" data-stock-filter="low" aria-pressed="false">
+        Sotto scorta <span>{{ inventory.sotto_scorta }}</span>
+      </button>
+      <button type="button" data-stock-filter="out" aria-pressed="false">
+        Esauriti <span>{{ inventory.esauriti }}</span>
+      </button>
+    </div>
+
+    <div class="inventory-toolbar-divider"></div>
+
+    <form method="get" class="inventory-filter-form" aria-label="Filtri magazzino">
+      <div class="inventory-search-field">
+        <label class="visually-hidden" for="inventorySearch">Cerca prodotto</label>
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input id="inventorySearch" type="search" class="form-control" placeholder="Cerca prodotto, SKU o marca" autocomplete="off">
+      </div>
+      <div>
+        <label class="visually-hidden" for="inventoryCategory">Categoria</label>
+        <select id="inventoryCategory" name="categoria_id" class="form-select">
+          <option value="">Categoria</option>
+          {% for c in categorie %}
+            <option value="{{ c.id }}" {% if filtri.get('categoria_id') == (c.id|string) %}selected{% endif %}>{{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="visually-hidden" for="inventoryBrand">Marca</label>
+        <select id="inventoryBrand" name="marca_id" class="form-select">
+          <option value="">Marca</option>
+          {% for m in marche %}
+            <option value="{{ m.id }}" {% if filtri.get('marca_id') == (m.id|string) %}selected{% endif %}>{{ m.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="visually-hidden" for="inventoryCompatibility">Compatibilità</label>
+        <select id="inventoryCompatibility" name="compatibilita_id" class="form-select">
+          <option value="">Compatibilità</option>
+          {% for comp in compatibilita %}
+            <option value="{{ comp.id }}" {% if filtri.get('compatibilita_id') == (comp.id|string) %}selected{% endif %}>{{ comp.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button class="btn inventory-filter-button" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filtra</button>
+      <a class="btn inventory-reset-button" href="{{ url_for('inventory.magazzino') }}">Azzera</a>
+    </form>
+  </div>
+
+  <div class="inventory-table-card">
+    <div class="inventory-table-header">
+      <div>
+        <strong id="inventoryResultCount">{{ prodotti|length }}</strong>
+        <span id="inventoryResultLabel">{{ 'prodotto' if prodotti|length == 1 else 'prodotti' }}</span>
+      </div>
+      {% if inventory.sotto_scorta or inventory.esauriti %}
+        <span class="inventory-alert-summary"><i class="bi bi-exclamation-circle" aria-hidden="true"></i> {{ inventory.sotto_scorta + inventory.esauriti }} da controllare</span>
+      {% else %}
+        <span class="inventory-ok-summary"><i class="bi bi-check-circle" aria-hidden="true"></i> Scorte regolari</span>
+      {% endif %}
+    </div>
+
+    <div class="table-responsive inventory-table-wrap">
+      <table class="table inventory-table align-middle">
+        <thead>
           <tr>
-            <td>{{ p.nome }}</td>
-            <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
-            <td>{{ p.brand.nome if p.brand else '-' }}</td>
-            <td>{{ p.compatibility.nome if p.compatibility else "-" }}</td>
-            <td>{{ p.giacenza_corrente }}</td>
-            <td>{{ p.scorta_minima_corrente }}</td>
-            <td>
-              {% if p.stato_disponibilita_corrente == 'esaurito' %}
-                <span class="badge bg-danger">Esaurito</span>
-              {% elif p.stato_disponibilita_corrente == 'quasi esaurito' %}
-                <span class="badge bg-warning text-dark">Quasi esaurito</span>
-              {% else %}
-                <span class="badge bg-success">Disponibile</span>
-              {% endif %}
-            </td>
+            <th>Prodotto</th>
+            <th class="inventory-category-column">Categoria</th>
+            <th>Disponibilità</th>
+            <th>Scorta minima</th>
+            <th>Copertura</th>
+            <th>Stato</th>
+            <th class="inventory-actions-column"><span class="visually-hidden">Azioni</span></th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody id="inventoryTableBody">
+          {% for p in prodotti %}
+            {% if p.giacenza_corrente <= 0 %}
+              {% set stock_status = 'out' %}
+              {% set status_label = 'Esaurito' %}
+            {% elif p.giacenza_corrente <= p.scorta_minima_corrente %}
+              {% set stock_status = 'low' %}
+              {% set status_label = 'Sotto scorta' %}
+            {% else %}
+              {% set stock_status = 'available' %}
+              {% set status_label = 'Disponibile' %}
+            {% endif %}
+            {% if p.scorta_minima_corrente > 0 %}
+              {% set coverage = ((p.giacenza_corrente / p.scorta_minima_corrente) * 100)|int %}
+            {% else %}
+              {% set coverage = 100 if p.giacenza_corrente > 0 else 0 %}
+            {% endif %}
+            {% set coverage_bar = 100 if coverage > 100 else (0 if coverage < 0 else coverage) %}
+            <tr data-stock-status="{{ stock_status }}" data-search="{{ (p.nome ~ ' ' ~ (p.sku_barcode or '') ~ ' ' ~ (p.brand.nome if p.brand else '') ~ ' ' ~ (p.categoria.nome if p.categoria else '') ~ ' ' ~ (p.compatibility.nome if p.compatibility else ''))|lower }}">
+              <td class="inventory-product-cell">
+                <div class="inventory-product">
+                  <div class="inventory-product-thumb">
+                    {% if p.immagine_url %}
+                      <img src="{{ p.immagine_url }}" alt="Foto {{ p.nome }}" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                      <span hidden><i class="bi bi-box-seam" aria-hidden="true"></i></span>
+                    {% else %}
+                      <span><i class="bi bi-box-seam" aria-hidden="true"></i></span>
+                    {% endif %}
+                  </div>
+                  <div>
+                    <strong>{{ p.nome }}</strong>
+                    <small>{{ p.brand.nome if p.brand else '—' }} · {{ p.categoria.nome if p.categoria else '—' }}</small>
+                    <small>{{ p.compatibility.nome if p.compatibility else 'Compatibilità non indicata' }}{% if p.sku_barcode %} · {{ p.sku_barcode }}{% endif %}</small>
+                  </div>
+                </div>
+              </td>
+              <td class="inventory-category-column"><span class="inventory-category-badge">{{ p.categoria.nome if p.categoria else '—' }}</span></td>
+              <td>
+                <strong class="inventory-quantity">{{ p.giacenza_corrente }} <small>pz</small></strong>
+              </td>
+              <td><span class="inventory-min-stock">{{ p.scorta_minima_corrente }} pz</span></td>
+              <td class="inventory-coverage-cell">
+                <div class="inventory-coverage-copy"><span>{{ coverage }}%</span><small>rispetto al minimo</small></div>
+                <div class="inventory-progress" role="progressbar" aria-label="Copertura scorta {{ p.nome }}" aria-valuenow="{{ coverage_bar }}" aria-valuemin="0" aria-valuemax="100">
+                  <span class="is-{{ stock_status }}" style="width: {{ coverage_bar }}%"></span>
+                </div>
+              </td>
+              <td>
+                <span class="inventory-status is-{{ stock_status }}"><span aria-hidden="true"></span>{{ status_label }}</span>
+              </td>
+              <td class="inventory-row-actions">
+                <a class="btn inventory-move-button" href="{{ url_for('inventory.movimenti', prodotto_id=p.id) }}#nuovo-movimento">Movimenta</a>
+                <div class="dropdown">
+                  <button class="btn inventory-row-menu" type="button" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false" aria-label="Altre azioni per {{ p.nome }}">
+                    <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-end inventory-dropdown-menu">
+                    <li><a class="dropdown-item" href="{{ url_for('inventory.movimenti', prodotto=p.nome) }}"><i class="bi bi-clock-history" aria-hidden="true"></i> Storico movimenti</a></li>
+                    {% if current_user.has_role('Admin') %}
+                      <li><a class="dropdown-item" href="{{ url_for('products.modifica', product_id=p.id) }}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica prodotto</a></li>
+                    {% endif %}
+                  </ul>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="inventory-empty-state" id="inventoryEmptyState" hidden>
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <strong>Nessun prodotto trovato</strong>
+        <span>Prova a cambiare ricerca o filtro rapido.</span>
+      </div>
+    </div>
+
+    <footer class="inventory-pagination" id="inventoryPagination" aria-label="Paginazione magazzino">
+      <div class="table-page-size">
+        <span>Mostra</span>
+        <select id="inventoryPageSize" class="form-select form-select-sm" aria-label="Righe per pagina">
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+        </select>
+        <span>righe per pagina</span>
+      </div>
+      <span id="inventoryPageSummary"></span>
+      <nav>
+        <button type="button" id="inventoryPrevPage" aria-label="Pagina precedente"><i class="bi bi-chevron-left"></i></button>
+        <div id="inventoryPageButtons"></div>
+        <button type="button" id="inventoryNextPage" aria-label="Pagina successiva"><i class="bi bi-chevron-right"></i></button>
+      </nav>
+    </footer>
   </div>
-</div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const rows = [...document.querySelectorAll("#inventoryTableBody tr")];
+    const searchInput = document.getElementById("inventorySearch");
+    const quickFilters = [...document.querySelectorAll("[data-stock-filter]")];
+    const resultCount = document.getElementById("inventoryResultCount");
+    const resultLabel = document.getElementById("inventoryResultLabel");
+    const emptyState = document.getElementById("inventoryEmptyState");
+    const pagination = document.getElementById("inventoryPagination");
+    const pageSummary = document.getElementById("inventoryPageSummary");
+    const pageButtons = document.getElementById("inventoryPageButtons");
+    const previousButton = document.getElementById("inventoryPrevPage");
+    const nextButton = document.getElementById("inventoryNextPage");
+    const pageSizeControl = document.getElementById("inventoryPageSize");
+    let pageSize = Number(pageSizeControl.value);
+    let currentPage = 1;
+    let stockFilter = "all";
+
+    const normalized = value => (value || "").toLocaleLowerCase("it-IT").trim();
+
+    const visibleRows = () => {
+      const search = normalized(searchInput.value);
+      return rows.filter(row => {
+        const stockMatch = stockFilter === "all" || row.dataset.stockStatus === stockFilter;
+        const searchMatch = !search || normalized(row.dataset.search).includes(search);
+        return stockMatch && searchMatch;
+      });
+    };
+
+    const renderPaginationButtons = totalPages => {
+      pageButtons.replaceChildren();
+      for (let page = 1; page <= totalPages; page += 1) {
+        if (totalPages > 7 && page > 2 && page < totalPages - 1 && Math.abs(page - currentPage) > 1) {
+          if (page === 3 || page === totalPages - 2) {
+            const separator = document.createElement("span");
+            separator.textContent = "…";
+            pageButtons.append(separator);
+          }
+          continue;
+        }
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = page;
+        button.classList.toggle("active", page === currentPage);
+        button.setAttribute("aria-label", `Pagina ${page}`);
+        button.setAttribute("aria-current", page === currentPage ? "page" : "false");
+        button.addEventListener("click", () => { currentPage = page; render(); });
+        pageButtons.append(button);
+      }
+    };
+
+    const render = () => {
+      const matches = visibleRows();
+      const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * pageSize;
+      const end = Math.min(start + pageSize, matches.length);
+
+      rows.forEach(row => { row.hidden = true; });
+      matches.slice(start, end).forEach(row => { row.hidden = false; });
+
+      resultCount.textContent = matches.length;
+      resultLabel.textContent = matches.length === 1 ? "prodotto" : "prodotti";
+      emptyState.hidden = matches.length > 0;
+      pagination.hidden = matches.length === 0;
+      pageSummary.textContent = matches.length ? `${start + 1}–${end} di ${matches.length}` : "";
+      previousButton.disabled = currentPage === 1;
+      nextButton.disabled = currentPage === totalPages;
+      renderPaginationButtons(totalPages);
+    };
+
+    quickFilters.forEach(button => {
+      button.addEventListener("click", () => {
+        stockFilter = button.dataset.stockFilter;
+        currentPage = 1;
+        quickFilters.forEach(item => {
+          const active = item === button;
+          item.classList.toggle("active", active);
+          item.setAttribute("aria-pressed", String(active));
+        });
+        render();
+      });
+    });
+
+    searchInput.addEventListener("input", () => { currentPage = 1; render(); });
+    pageSizeControl.addEventListener("change", () => { pageSize = Number(pageSizeControl.value); currentPage = 1; render(); });
+    previousButton.addEventListener("click", () => { if (currentPage > 1) { currentPage -= 1; render(); } });
+    nextButton.addEventListener("click", () => {
+      const totalPages = Math.max(1, Math.ceil(visibleRows().length / pageSize));
+      if (currentPage < totalPages) { currentPage += 1; render(); }
+    });
+
+    render();
+  })();
+</script>
 {% endblock %}

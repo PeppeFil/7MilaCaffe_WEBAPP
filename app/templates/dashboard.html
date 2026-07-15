@@ -1,117 +1,316 @@
 {% extends "base.html" %}
 {% block title %}Dashboard | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header">
-  <h2>Dashboard</h2>
-  <p>Riepilogo operativo del negozio in tempo reale.</p>
-</section>
+{% set ticket_medio = (stats.incasso_oggi / stats.numero_vendite_oggi) if stats.numero_vendite_oggi else 0 %}
+<section class="dashboard-page" aria-labelledby="dashboardTitle">
+  <header class="page-header dashboard-heading">
+    <div>
+      <p class="dashboard-eyebrow">Riepilogo operativo</p>
+      <h2 id="dashboardTitle">Dashboard</h2>
+      <p>Il punto vendita di oggi, in un colpo d'occhio.</p>
+    </div>
+    <span class="dashboard-live"><span aria-hidden="true"></span>Dati aggiornati</span>
+  </header>
 
-<div class="row g-3">
-  <div class="col-md-3">
-    <div class="kpi-card">
-      <p>Incasso Oggi</p>
-      <h3>EUR {{ "%.2f"|format(stats.incasso_oggi) }}</h3>
-    </div>
+  <div class="dashboard-kpis" aria-label="Indicatori di oggi">
+    <article class="dashboard-kpi">
+      <div class="dashboard-kpi-icon"><i class="bi bi-cash-stack" aria-hidden="true"></i></div>
+      <div>
+        <p>Incasso oggi</p>
+        <strong>€ {{ "%.2f"|format(stats.incasso_oggi) }}</strong>
+        <small>Totale vendite completate</small>
+      </div>
+    </article>
+    <article class="dashboard-kpi">
+      <div class="dashboard-kpi-icon"><i class="bi bi-receipt-cutoff" aria-hidden="true"></i></div>
+      <div>
+        <p>Vendite oggi</p>
+        <strong>{{ stats.numero_vendite_oggi }}</strong>
+        <small>Scontrini completati</small>
+      </div>
+    </article>
+    <article class="dashboard-kpi">
+      <div class="dashboard-kpi-icon"><i class="bi bi-box-seam" aria-hidden="true"></i></div>
+      <div>
+        <p>Pezzi venduti</p>
+        <strong>{{ stats.pezzi_venduti_oggi }}</strong>
+        <small>Unità movimentate oggi</small>
+      </div>
+    </article>
+    <article class="dashboard-kpi">
+      <div class="dashboard-kpi-icon"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i></div>
+      <div>
+        <p>Ticket medio</p>
+        <strong>€ {{ "%.2f"|format(ticket_medio) }}</strong>
+        <small>Media per scontrino</small>
+      </div>
+    </article>
   </div>
-  <div class="col-md-3">
-    <div class="kpi-card">
-      <p>Vendite Oggi</p>
-      <h3>{{ stats.numero_vendite_oggi }}</h3>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="kpi-card">
-      <p>Pezzi Venduti Oggi</p>
-      <h3>{{ stats.pezzi_venduti_oggi }}</h3>
-    </div>
-  </div>
-  <div class="col-md-3">
-    <div class="kpi-card">
-      <p>Top Prodotto Oggi</p>
-      <h6>
-        {% if stats.prodotto_top_oggi %}
-          {{ stats.prodotto_top_oggi[0] }} ({{ stats.prodotto_top_oggi[1] }} pz)
+
+  <div class="dashboard-layout">
+    <div class="dashboard-primary">
+      <article class="dashboard-card dashboard-chart-card">
+        <div class="dashboard-card-header">
+          <div>
+            <span class="dashboard-card-kicker">Andamento</span>
+            <h3>Vendite</h3>
+          </div>
+          <div class="dashboard-chart-actions">
+            <label class="dashboard-period-select">
+              <i class="bi bi-calendar3" aria-hidden="true"></i>
+              <span class="visually-hidden">Periodo del grafico</span>
+              <select id="dashboardPeriodSelect" class="form-select form-select-sm">
+                <option value="7" selected>Ultimi 7 giorni</option>
+                <option value="1">Oggi</option>
+              </select>
+            </label>
+            <a class="btn dashboard-export-button" href="{{ url_for('report.export_pdf') }}">
+              <i class="bi bi-download" aria-hidden="true"></i> Esporta
+            </a>
+          </div>
+        </div>
+        <div class="dashboard-chart-summary">
+          <div>
+            <span>Totale periodo</span>
+            <strong id="chartPeriodTotal">€ 0,00</strong>
+          </div>
+          <span id="chartPeriodLabel">Ultimi 7 giorni</span>
+        </div>
+        <div class="dashboard-chart-wrap">
+          <canvas id="trendChart" aria-label="Grafico delle vendite" role="img"></canvas>
+        </div>
+      </article>
+
+      <article class="dashboard-card dashboard-watch-card">
+        <div class="dashboard-card-header">
+          <div>
+            <span class="dashboard-card-kicker">Scorte</span>
+            <h3>Prodotti da controllare</h3>
+          </div>
+          <a href="{{ url_for('inventory.magazzino') }}" class="dashboard-text-link">Vai al magazzino <i class="bi bi-arrow-right"></i></a>
+        </div>
+        {% if stats.sotto_scorta %}
+          <div class="dashboard-watch-list">
+            {% for p in stats.sotto_scorta[:5] %}
+              {% set disponibile = p.giacenza_corrente if p.giacenza_corrente is defined else p.quantita_disponibile %}
+              {% set minimo = p.scorta_minima_corrente if p.scorta_minima_corrente is defined else p.quantita_minima_alert %}
+              <div class="dashboard-watch-item">
+                <span class="dashboard-watch-status" aria-hidden="true"></span>
+                <div class="dashboard-watch-copy">
+                  <strong>{{ p.nome }}</strong>
+                  <small>{{ p.categoria.nome if p.categoria else "Senza categoria" }}</small>
+                </div>
+                <div class="dashboard-stock-values">
+                  <strong>{{ disponibile }} pz</strong>
+                  <small>min. {{ minimo }}</small>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+          {% if stats.sotto_scorta|length > 5 %}
+            <p class="dashboard-more-alerts">Altri {{ stats.sotto_scorta|length - 5 }} prodotti richiedono attenzione.</p>
+          {% endif %}
         {% else %}
-          Nessuna vendita
+          <div class="dashboard-empty-state">
+            <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+            <div><strong>Scorte sotto controllo</strong><span>Nessun prodotto è sotto la soglia minima.</span></div>
+          </div>
         {% endif %}
-      </h6>
+      </article>
     </div>
-  </div>
-</div>
 
-<div class="row g-3 mt-1">
-  <div class="col-lg-8">
-    <div class="panel-card">
-      <h5>Andamento Vendite Ultimi 7 Giorni</h5>
-      <canvas id="trendChart" height="120"></canvas>
-    </div>
-  </div>
-  <div class="col-lg-4">
-    <div class="panel-card">
-      <h5>Magazzino</h5>
-      <ul class="list-unstyled small mb-0">
-        <li>Prodotti attivi: <strong>{{ stats.magazzino.numero_prodotti }}</strong></li>
-        <li>Pezzi totali: <strong>{{ stats.magazzino.pezzi_totali }}</strong></li>
-        <li>Valore costo: <strong>EUR {{ "%.2f"|format(stats.magazzino.valore_costo) }}</strong></li>
-        <li>Valore vendita: <strong>EUR {{ "%.2f"|format(stats.magazzino.valore_vendita) }}</strong></li>
-      </ul>
-    </div>
-  </div>
-</div>
+    <aside class="dashboard-side" aria-label="Riepiloghi rapidi">
+      <article class="dashboard-card dashboard-top-product">
+        <div class="dashboard-side-title">
+          <span class="dashboard-side-icon"><i class="bi bi-trophy-fill" aria-hidden="true"></i></span>
+          <div><span>Oggi</span><h3>Top prodotto</h3></div>
+        </div>
+        {% if stats.prodotto_top_oggi %}
+          <div class="dashboard-top-product-body">
+            <span class="dashboard-top-product-visual"><i class="bi bi-cup-hot-fill" aria-hidden="true"></i></span>
+            <div>
+              <strong class="dashboard-product-name">{{ stats.prodotto_top_oggi[0] }}</strong>
+              <div class="dashboard-product-result"><span>{{ stats.prodotto_top_oggi[1] }} pezzi venduti</span><i class="bi bi-arrow-up-right"></i></div>
+            </div>
+          </div>
+        {% else %}
+          <p class="dashboard-muted mb-0">Nessuna vendita registrata oggi.</p>
+        {% endif %}
+      </article>
 
-<div class="panel-card mt-3">
-  <h5>Prodotti Sotto Scorta Minima</h5>
-  {% if stats.sotto_scorta %}
-    <div class="table-responsive">
-      <table class="table table-sm align-middle">
-        <thead>
-          <tr>
-            <th>Prodotto</th>
-            <th>Categoria</th>
-            <th>Disponibile</th>
-            <th>Minimo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in stats.sotto_scorta %}
-            <tr>
-              <td>{{ p.nome }}</td>
-              <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
-              <td><span class="badge bg-danger">{{ p.giacenza_corrente if p.giacenza_corrente is defined else p.quantita_disponibile }}</span></td>
-              <td>{{ p.scorta_minima_corrente if p.scorta_minima_corrente is defined else p.quantita_minima_alert }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  {% else %}
-    <p class="text-success mb-0">Nessun prodotto sotto soglia.</p>
-  {% endif %}
-</div>
+      <article class="dashboard-card">
+        <div class="dashboard-card-header dashboard-card-header-compact">
+          <div><span class="dashboard-card-kicker">Incassi di oggi</span><h3>Pagamenti</h3></div>
+          <a href="{{ url_for('analysis.index', periodo='oggi') }}" class="dashboard-icon-link" aria-label="Apri analisi pagamenti"><i class="bi bi-arrow-up-right"></i></a>
+        </div>
+        <div id="paymentSummary" class="dashboard-payment-summary" aria-live="polite">
+          <div class="dashboard-payment-list">
+            <div class="dashboard-payment-row" data-payment="contanti">
+              <span class="dashboard-payment-icon"><i class="bi bi-cash" aria-hidden="true"></i></span>
+              <div><strong>Contanti</strong><small class="payment-count">Caricamento…</small></div>
+              <strong class="payment-total">—</strong>
+            </div>
+            <div class="dashboard-payment-row" data-payment="carta">
+              <span class="dashboard-payment-icon"><i class="bi bi-credit-card" aria-hidden="true"></i></span>
+              <div><strong>Carta</strong><small class="payment-count">Caricamento…</small></div>
+              <strong class="payment-total">—</strong>
+            </div>
+          </div>
+          <div class="dashboard-payment-chart" id="dashboardPaymentChart" role="img" aria-label="Ripartizione degli incassi tra contanti e carta">
+            <span><strong id="dashboardPaymentPercent">0%</strong><small>Carta</small></span>
+          </div>
+        </div>
+      </article>
+
+      <article class="dashboard-card">
+        <div class="dashboard-card-header dashboard-card-header-compact">
+          <div><span class="dashboard-card-kicker">Disponibilità</span><h3>Magazzino</h3></div>
+          <span class="dashboard-count-badge">{{ stats.magazzino.numero_prodotti }}</span>
+        </div>
+        <div class="dashboard-inventory-grid">
+          <div><span>Pezzi totali</span><strong>{{ stats.magazzino.pezzi_totali }}</strong></div>
+          <div><span>Valore vendita</span><strong>€ {{ "%.2f"|format(stats.magazzino.valore_vendita) }}</strong></div>
+          <div><span>Valore costo</span><strong>€ {{ "%.2f"|format(stats.magazzino.valore_costo) }}</strong></div>
+          <div><span>Sotto scorta</span><strong class="{{ 'dashboard-danger-text' if stats.sotto_scorta else '' }}">{{ stats.sotto_scorta|length }}</strong></div>
+        </div>
+      </article>
+
+      <article class="dashboard-card dashboard-last-sale" id="lastSaleCard" aria-live="polite">
+        <div class="dashboard-card-header dashboard-card-header-compact">
+          <div><span class="dashboard-card-kicker">Attività recente</span><h3>Ultima vendita</h3></div>
+          <a href="{{ url_for('sales.index') }}" class="dashboard-icon-link" aria-label="Apri elenco vendite"><i class="bi bi-arrow-up-right"></i></a>
+        </div>
+        <div class="dashboard-last-sale-loading"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Caricamento…</div>
+      </article>
+    </aside>
+  </div>
+</section>
 {% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  const trendData = {{ stats.trend_7_giorni | tojson }};
-  const ctx = document.getElementById('trendChart');
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: trendData.map(item => item.giorno),
-      datasets: [{
-        label: 'Vendite (EUR)',
-        data: trendData.map(item => item.totale),
-        borderColor: '#6f4e37',
-        backgroundColor: 'rgba(111,78,55,.15)',
+  (() => {
+    const trendData = {{ stats.trend_7_giorni | tojson }};
+    const currency = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
+    const dayLabel = new Intl.DateTimeFormat("it-IT", { weekday: "short", day: "2-digit" });
+    const canvas = document.getElementById("trendChart");
+    const totalLabel = document.getElementById("chartPeriodTotal");
+    const periodLabel = document.getElementById("chartPeriodLabel");
+
+    const chart = new Chart(canvas, {
+      type: "line",
+      data: { labels: [], datasets: [{
+        data: [],
+        borderColor: "#d9a66f",
+        backgroundColor: "rgba(217, 166, 111, 0.16)",
+        pointBackgroundColor: "#f7f0e8",
+        pointBorderColor: "#9c6d54",
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2.5,
         fill: true,
-        tension: 0.25
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } }
-    }
-  });
+        tension: 0.36
+      }]},
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: "index" },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            displayColors: false,
+            callbacks: { label: context => currency.format(context.parsed.y || 0) }
+          }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { color: "#7e6a5d" }, border: { display: false } },
+          y: {
+            beginAtZero: true,
+            grid: { color: "rgba(94,64,48,.12)" },
+            border: { display: false },
+            ticks: { color: "#7e6a5d", callback: value => currency.format(value) }
+          }
+        }
+      }
+    });
+
+    const renderPeriod = (days) => {
+      const rows = trendData.slice(-days);
+      chart.data.labels = rows.map(item => dayLabel.format(new Date(`${item.giorno}T12:00:00`)));
+      chart.data.datasets[0].data = rows.map(item => Number(item.totale || 0));
+      chart.update();
+      totalLabel.textContent = currency.format(rows.reduce((sum, item) => sum + Number(item.totale || 0), 0));
+      periodLabel.textContent = days === 1 ? "Oggi" : "Ultimi 7 giorni";
+    };
+
+    document.getElementById("dashboardPeriodSelect")?.addEventListener("change", event => renderPeriod(Number(event.target.value)));
+    renderPeriod(7);
+
+    const parseAmount = value => {
+      const clean = (value || "").replace(/[^0-9,.-]/g, "");
+      const normalized = clean.includes(",") ? clean.replace(/\./g, "").replace(",", ".") : clean;
+      return Number(normalized) || 0;
+    };
+    const escapeHtml = value => String(value || "").replace(/[&<>"']/g, character => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+    })[character]);
+    const loadPayments = async () => {
+      try {
+        const response = await fetch("{{ url_for('analysis.index', periodo='oggi') }}", { headers: { "X-Requested-With": "Dashboard" } });
+        if (!response.ok) throw new Error("Riepilogo pagamenti non disponibile");
+        const documentCopy = new DOMParser().parseFromString(await response.text(), "text/html");
+        const heading = [...documentCopy.querySelectorAll("h5")].find(item => item.textContent.toLowerCase().includes("metodi di pagamento"));
+        const rows = heading ? [...heading.closest(".panel-card").querySelectorAll("tbody tr")] : [];
+        const payments = rows.map(row => {
+          const cells = row.querySelectorAll("td");
+          return { method: cells[0]?.textContent.trim().toLowerCase(), count: Number(cells[1]?.textContent.trim() || 0), total: parseAmount(cells[2]?.textContent) };
+        });
+        ["contanti", "carta"].forEach(method => {
+          const item = payments.find(payment => payment.method === method) || { count: 0, total: 0 };
+          const target = document.querySelector(`[data-payment="${method}"]`);
+          target.querySelector(".payment-count").textContent = `${item.count} ${item.count === 1 ? "vendita" : "vendite"}`;
+          target.querySelector(".payment-total").textContent = currency.format(item.total);
+        });
+        const cashTotal = (payments.find(payment => payment.method === "contanti") || {}).total || 0;
+        const cardTotal = (payments.find(payment => payment.method === "carta") || {}).total || 0;
+        const paymentTotal = cashTotal + cardTotal;
+        const cardPercent = paymentTotal ? Math.round((cardTotal / paymentTotal) * 100) : 0;
+        document.getElementById("dashboardPaymentChart").style.setProperty("--card-share", `${cardPercent * 3.6}deg`);
+        document.getElementById("dashboardPaymentPercent").textContent = `${cardPercent}%`;
+      } catch (error) {
+        document.querySelectorAll(".dashboard-payment-row").forEach(target => {
+          target.querySelector(".payment-count").textContent = "Dato non disponibile";
+          target.querySelector(".payment-total").textContent = "—";
+        });
+      }
+    };
+
+    const loadLastSale = async () => {
+      const card = document.getElementById("lastSaleCard");
+      try {
+        const response = await fetch("{{ url_for('sales.index', stato='completata') }}", { headers: { "X-Requested-With": "Dashboard" } });
+        if (!response.ok) throw new Error("Ultima vendita non disponibile");
+        const documentCopy = new DOMParser().parseFromString(await response.text(), "text/html");
+        const cells = documentCopy.querySelectorAll("tbody tr:first-child td");
+        if (cells.length < 7) {
+          card.querySelector(".dashboard-last-sale-loading").innerHTML = '<span class="dashboard-muted">Nessuna vendita completata.</span>';
+          return;
+        }
+        card.querySelector(".dashboard-last-sale-loading").outerHTML = `
+          <div class="dashboard-last-sale-body">
+            <div><strong>${escapeHtml(cells[2].textContent.trim())}</strong><span>${escapeHtml(cells[0].textContent.trim())}</span></div>
+            <p><i class="bi bi-clock"></i> ${escapeHtml(cells[1].textContent.trim())}</p>
+            <div class="dashboard-last-sale-meta"><span>${escapeHtml(cells[4].textContent.trim())}</span><span>${escapeHtml(cells[5].textContent.trim())}</span></div>
+          </div>`;
+      } catch (error) {
+        card.querySelector(".dashboard-last-sale-loading").innerHTML = '<span class="dashboard-muted">Dato non disponibile. Apri Vendite per il dettaglio.</span>';
+      }
+    };
+
+    loadPayments();
+    loadLastSale();
+  })();
 </script>
 {% endblock %}

@@ -1,138 +1,259 @@
 {% extends "base.html" %}
 {% block title %}Prodotti | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-  <div>
-    <h2>Prodotti</h2>
-    <p>Catalogo globale; quantità riferite al punto vendita attivo.</p>
+<section class="products-page" aria-labelledby="productsTitle">
+  <header class="page-header products-heading">
+    <div>
+      <p class="products-eyebrow">Catalogo globale</p>
+      <h2 id="productsTitle">Prodotti</h2>
+      <p>Prezzi e anagrafica condivisi, giacenze del punto vendita attivo.</p>
+    </div>
+    <div class="products-header-actions">
+      <a href="{{ url_for('products.export_csv', **filtri) }}" class="btn products-secondary-button">
+        <i class="bi bi-download" aria-hidden="true"></i><span>Export CSV</span>
+      </a>
+      {% if current_user.has_role('Admin') %}
+        <div class="dropdown">
+          <button class="btn products-more-button" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Altre operazioni sui prodotti">
+            <i class="bi bi-three-dots" aria-hidden="true"></i>
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end products-dropdown-menu">
+            <li>
+              <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#productImportModal">
+                <i class="bi bi-upload" aria-hidden="true"></i> Importa CSV
+              </button>
+            </li>
+          </ul>
+        </div>
+        <a href="{{ url_for('products.nuovo') }}" class="btn btn-coffee products-primary-button">
+          <i class="bi bi-plus-lg" aria-hidden="true"></i><span>Nuovo prodotto</span>
+        </a>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="products-filter-card">
+    <form method="get" class="products-filter-form" aria-label="Filtri prodotti">
+      <div class="products-search-field">
+        <label class="visually-hidden" for="productsSearch">Cerca prodotto</label>
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input id="productsSearch" type="search" name="q" class="form-control" placeholder="Cerca nome, SKU, marca o barcode" value="{{ filtri.get('q','') }}" autocomplete="off">
+      </div>
+      <div>
+        <label class="visually-hidden" for="categoryFilter">Categoria</label>
+        <select id="categoryFilter" name="categoria_id" class="form-select">
+          <option value="">Categoria</option>
+          {% for c in categorie %}
+            <option value="{{ c.id }}" {% if filtri.get('categoria_id') == (c.id|string) %}selected{% endif %}>{{ c.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="visually-hidden" for="brandFilter">Marca</label>
+        <select id="brandFilter" name="marca_id" class="form-select">
+          <option value="">Marca</option>
+          {% for m in marche %}
+            <option value="{{ m.id }}" {% if filtri.get('marca_id') == (m.id|string) %}selected{% endif %}>{{ m.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="visually-hidden" for="compatibilityFilter">Compatibilità</label>
+        <select id="compatibilityFilter" name="compatibilita_id" class="form-select">
+          <option value="">Compatibilità</option>
+          {% for comp in compatibilita %}
+            <option value="{{ comp.id }}" {% if filtri.get('compatibilita_id') == (comp.id|string) %}selected{% endif %}>{{ comp.nome }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="visually-hidden" for="statusFilter">Stato</label>
+        <select id="statusFilter" name="attivo" class="form-select">
+          <option value="">Stato</option>
+          <option value="1" {% if filtri.get('attivo') == '1' %}selected{% endif %}>Attivo</option>
+          <option value="0" {% if filtri.get('attivo') == '0' %}selected{% endif %}>Disattivato</option>
+        </select>
+      </div>
+      {% if filtri.get('sku') %}<input type="hidden" name="sku" value="{{ filtri.get('sku') }}">{% endif %}
+      <button class="btn products-filter-button" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filtra</button>
+      <a class="btn products-reset-button" href="{{ url_for('products.index') }}">Azzera</a>
+    </form>
   </div>
-  <div class="d-flex gap-2">
-    <a href="{{ url_for('products.export_csv', **filtri) }}" class="btn btn-outline-light">Export CSV</a>
-    {% if current_user.has_role('Admin') %}
-      <a href="{{ url_for('products.nuovo') }}" class="btn btn-coffee">Nuovo prodotto</a>
+
+  {% set active_filters = namespace(count=0) %}
+  {% if filtri.get('q') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+  {% if filtri.get('categoria_id') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+  {% if filtri.get('marca_id') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+  {% if filtri.get('compatibilita_id') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+  {% if filtri.get('attivo') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+  {% if filtri.get('sku') %}{% set active_filters.count = active_filters.count + 1 %}{% endif %}
+
+  <div class="products-results-bar">
+    <div class="products-result-count">
+      <strong>{{ prodotti|length }}</strong> {{ 'prodotto trovato' if prodotti|length == 1 else 'prodotti trovati' }}
+    </div>
+    {% if active_filters.count %}
+      <div class="products-active-filters" aria-label="Filtri attivi">
+        <span class="products-filter-label">Filtri attivi</span>
+        {% if filtri.get('q') %}
+          <a class="products-filter-chip" href="{{ url_for('products.index', categoria_id=filtri.get('categoria_id',''), marca_id=filtri.get('marca_id',''), compatibilita_id=filtri.get('compatibilita_id',''), attivo=filtri.get('attivo',''), sku=filtri.get('sku','')) }}">
+            Ricerca: {{ filtri.get('q') }} <i class="bi bi-x" aria-hidden="true"></i>
+          </a>
+        {% endif %}
+        {% if filtri.get('categoria_id') %}
+          {% for c in categorie if filtri.get('categoria_id') == (c.id|string) %}
+            <a class="products-filter-chip" href="{{ url_for('products.index', q=filtri.get('q',''), marca_id=filtri.get('marca_id',''), compatibilita_id=filtri.get('compatibilita_id',''), attivo=filtri.get('attivo',''), sku=filtri.get('sku','')) }}">{{ c.nome }} <i class="bi bi-x" aria-hidden="true"></i></a>
+          {% endfor %}
+        {% endif %}
+        {% if filtri.get('marca_id') %}
+          {% for m in marche if filtri.get('marca_id') == (m.id|string) %}
+            <a class="products-filter-chip" href="{{ url_for('products.index', q=filtri.get('q',''), categoria_id=filtri.get('categoria_id',''), compatibilita_id=filtri.get('compatibilita_id',''), attivo=filtri.get('attivo',''), sku=filtri.get('sku','')) }}">{{ m.nome }} <i class="bi bi-x" aria-hidden="true"></i></a>
+          {% endfor %}
+        {% endif %}
+        {% if filtri.get('compatibilita_id') %}
+          {% for comp in compatibilita if filtri.get('compatibilita_id') == (comp.id|string) %}
+            <a class="products-filter-chip" href="{{ url_for('products.index', q=filtri.get('q',''), categoria_id=filtri.get('categoria_id',''), marca_id=filtri.get('marca_id',''), attivo=filtri.get('attivo',''), sku=filtri.get('sku','')) }}">{{ comp.nome }} <i class="bi bi-x" aria-hidden="true"></i></a>
+          {% endfor %}
+        {% endif %}
+        {% if filtri.get('attivo') %}
+          <a class="products-filter-chip" href="{{ url_for('products.index', q=filtri.get('q',''), categoria_id=filtri.get('categoria_id',''), marca_id=filtri.get('marca_id',''), compatibilita_id=filtri.get('compatibilita_id',''), sku=filtri.get('sku','')) }}">
+            {{ 'Attivo' if filtri.get('attivo') == '1' else 'Disattivato' }} <i class="bi bi-x" aria-hidden="true"></i>
+          </a>
+        {% endif %}
+        {% if filtri.get('sku') %}
+          <a class="products-filter-chip" href="{{ url_for('products.index', q=filtri.get('q',''), categoria_id=filtri.get('categoria_id',''), marca_id=filtri.get('marca_id',''), compatibilita_id=filtri.get('compatibilita_id',''), attivo=filtri.get('attivo','')) }}">SKU: {{ filtri.get('sku') }} <i class="bi bi-x" aria-hidden="true"></i></a>
+        {% endif %}
+      </div>
     {% endif %}
+  </div>
+
+  <div class="products-table-card">
+    <div class="table-responsive products-table-wrap">
+      <table class="table products-table align-middle">
+        <thead>
+          <tr>
+            <th>Prodotto</th>
+            <th class="products-brand-column">Marca</th>
+            <th class="products-sku-column">SKU</th>
+            <th class="products-category-column">Categoria</th>
+            <th class="products-compatibility-column">Compatibilità</th>
+            <th>Prezzi</th>
+            <th>Giacenza</th>
+            <th>Stato</th>
+            {% if current_user.has_role('Admin') %}<th class="products-actions-column"><span class="visually-hidden">Azioni</span></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in prodotti %}
+            <tr>
+              <td class="products-identity-cell">
+                <div class="products-identity">
+                  <div class="products-thumbnail">
+                    {% if p.immagine_url %}
+                      <img src="{{ p.immagine_url }}" alt="Foto {{ p.nome }}" loading="lazy" onerror="this.hidden=true; this.nextElementSibling.hidden=false;">
+                      <span hidden><i class="bi bi-cup-hot" aria-hidden="true"></i></span>
+                    {% else %}
+                      <span><i class="bi bi-cup-hot" aria-hidden="true"></i></span>
+                    {% endif %}
+                  </div>
+                  <div class="products-identity-copy">
+                    <strong>{{ p.nome }}</strong>
+                    <small class="products-product-format">{{ p.formato_confezione or 'Formato non indicato' }}</small>
+                    <small class="products-mobile-meta">{{ p.brand.nome if p.brand else '—' }} · {{ p.sku_barcode or 'SKU non assegnato' }}</small>
+                  </div>
+                </div>
+              </td>
+              <td class="products-brand-column"><span class="products-table-text">{{ p.brand.nome if p.brand else '—' }}</span></td>
+              <td class="products-sku-column"><code class="products-sku">{{ p.sku_barcode or '—' }}</code></td>
+              <td class="products-category-column"><span class="products-category-badge">{{ p.categoria.nome if p.categoria else '—' }}</span></td>
+              <td class="products-compatibility-column"><span class="products-table-text">{{ p.compatibility.nome if p.compatibility else '—' }}</span></td>
+              <td class="products-price-cell">
+                <strong>€ {{ "%.2f"|format(p.prezzo_vendita) }}</strong>
+                <small>Acq. € {{ "%.2f"|format(p.prezzo_acquisto) }} · IVA {{ "%.0f"|format(p.vat_rate.aliquota if p.vat_rate else 0) }}%</small>
+              </td>
+              <td>
+                <div class="products-stock {{ 'is-empty' if p.giacenza_corrente <= 0 else ('is-low' if p.giacenza_corrente <= p.scorta_minima_corrente else 'is-ok') }}">
+                  <span aria-hidden="true"></span><strong>{{ p.giacenza_corrente }} pz</strong>
+                </div>
+                <small class="products-stock-min">min. {{ p.scorta_minima_corrente }}</small>
+              </td>
+              <td>
+                <span class="products-status {{ 'is-active' if p.attivo else 'is-inactive' }}">
+                  <span aria-hidden="true"></span>{{ 'Attivo' if p.attivo else 'Disattivato' }}
+                </span>
+              </td>
+              {% if current_user.has_role('Admin') %}
+                <td class="products-row-actions">
+                  <a class="btn products-edit-button" href="{{ url_for('products.modifica', product_id=p.id) }}">Modifica</a>
+                  <div class="dropdown">
+                    <button class="btn products-row-menu-button" type="button" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false" aria-label="Altre azioni per {{ p.nome }}">
+                      <i class="bi bi-three-dots-vertical" aria-hidden="true"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end products-dropdown-menu">
+                      <li>
+                        <form method="post" action="{{ url_for('products.duplica', product_id=p.id) }}">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <button class="dropdown-item" type="submit"><i class="bi bi-copy" aria-hidden="true"></i> Duplica</button>
+                        </form>
+                      </li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li>
+                        <form method="post" action="{{ url_for('products.elimina', product_id=p.id) }}" onsubmit="return confirm('Confermi disattivazione prodotto?');">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <button class="dropdown-item products-danger-action" type="submit"><i class="bi bi-slash-circle" aria-hidden="true"></i> Disattiva</button>
+                        </form>
+                      </li>
+                    </ul>
+                  </div>
+                </td>
+              {% endif %}
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="9">
+                <div class="products-empty-state">
+                  <i class="bi bi-search" aria-hidden="true"></i>
+                  <strong>Nessun prodotto trovato</strong>
+                  <span>Modifica i filtri oppure azzera la ricerca.</span>
+                  <a href="{{ url_for('products.index') }}" class="btn products-reset-button">Azzera filtri</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
 
-<div class="panel-card mb-3">
-  <form method="get" class="row g-2">
-    <div class="col-md-3">
-      <input type="text" name="q" class="form-control" placeholder="Nome / marca / barcode" value="{{ filtri.get('q','') }}">
-    </div>
-    <div class="col-md-2">
-      <select name="categoria_id" class="form-select">
-        <option value="">Categoria</option>
-        {% for c in categorie %}
-          <option value="{{ c.id }}" {% if filtri.get('categoria_id') == (c.id|string) %}selected{% endif %}>{{ c.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2">
-      <select name="marca_id" class="form-select">
-        <option value="">Marca</option>
-        {% for m in marche %}
-          <option value="{{ m.id }}" {% if filtri.get('marca_id') == (m.id|string) %}selected{% endif %}>{{ m.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-2">
-      <select name="compatibilita_id" class="form-select">
-        <option value="">Compatibilita</option>
-        {% for comp in compatibilita %}
-          <option value="{{ comp.id }}" {% if filtri.get('compatibilita_id') == (comp.id|string) %}selected{% endif %}>{{ comp.nome }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="col-md-1">
-      <input type="text" name="sku" class="form-control" placeholder="SKU" value="{{ filtri.get('sku','') }}">
-    </div>
-    <div class="col-md-1">
-      <select name="attivo" class="form-select">
-        <option value="">Stato</option>
-        <option value="1" {% if filtri.get('attivo') == '1' %}selected{% endif %}>Attivo</option>
-        <option value="0" {% if filtri.get('attivo') == '0' %}selected{% endif %}>Off</option>
-      </select>
-    </div>
-    <div class="col-md-1 d-grid">
-      <button class="btn btn-outline-light">Filtra</button>
-    </div>
-  </form>
-</div>
-
 {% if current_user.has_role('Admin') %}
-<div class="panel-card mb-3">
-  <form method="post" action="{{ url_for('products.import_csv') }}" enctype="multipart/form-data" class="row g-2 align-items-center">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="col-md-9">
-      <input class="form-control" type="file" name="file_csv" accept=".csv" required>
+  <div class="modal fade products-import-modal" id="productImportModal" tabindex="-1" aria-labelledby="productImportTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form method="post" action="{{ url_for('products.import_csv') }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="modal-header">
+            <div>
+              <p class="products-eyebrow mb-1">Aggiornamento catalogo</p>
+              <h2 class="modal-title fs-4" id="productImportTitle">Importa prodotti da CSV</h2>
+            </div>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+          </div>
+          <div class="modal-body">
+            <p>I prodotti con lo stesso SKU verranno aggiornati; gli altri saranno creati.</p>
+            <label class="products-file-drop" for="productCsvFile">
+              <i class="bi bi-filetype-csv" aria-hidden="true"></i>
+              <span><strong>Seleziona il file CSV</strong><small>Formato accettato: .csv</small></span>
+              <input id="productCsvFile" class="form-control" type="file" name="file_csv" accept=".csv,text/csv" required>
+            </label>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn products-reset-button" data-bs-dismiss="modal">Annulla</button>
+            <button type="submit" class="btn btn-coffee"><i class="bi bi-upload" aria-hidden="true"></i> Importa CSV</button>
+          </div>
+        </form>
+      </div>
     </div>
-    <div class="col-md-3 d-grid">
-      <button class="btn btn-outline-light">Import CSV</button>
-    </div>
-  </form>
-</div>
-{% endif %}
-
-<div class="panel-card">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Nome</th>
-          <th>Categoria</th>
-          <th>Marca</th>
-          <th>Compatibilita</th>
-          <th>Prezzi</th>
-          <th>Qta</th>
-          <th>SKU</th>
-          <th>Stato</th>
-          {% if current_user.has_role('Admin') %}<th>Azioni</th>{% endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in prodotti %}
-        <tr>
-          <td>{{ p.id }}</td>
-          <td>{{ p.nome }}</td>
-          <td>{{ p.categoria.nome if p.categoria else "-" }}</td>
-          <td>{{ p.brand.nome if p.brand else '-' }}</td>
-          <td>{{ p.compatibility.nome if p.compatibility else "-" }}</td>
-          <td>
-            <div class="small">Acq: EUR {{ "%.2f"|format(p.prezzo_acquisto) }}</div>
-            <div class="small">Vend: EUR {{ "%.2f"|format(p.prezzo_vendita) }}</div>
-            <div class="small">IVA: {{ "%.2f"|format(p.vat_rate.aliquota if p.vat_rate else 0) }}%</div>
-          </td>
-          <td>
-            <span class="badge {% if p.giacenza_corrente <= 0 %}bg-danger{% elif p.giacenza_corrente <= p.scorta_minima_corrente %}bg-warning text-dark{% else %}bg-success{% endif %}">
-              {{ p.giacenza_corrente }}
-            </span>
-          </td>
-          <td>{{ p.sku_barcode or "-" }}</td>
-          <td>
-            {% if p.attivo %}
-              <span class="badge bg-success">Attivo</span>
-            {% else %}
-              <span class="badge bg-secondary">Disattivato</span>
-            {% endif %}
-          </td>
-          {% if current_user.has_role('Admin') %}
-          <td class="d-flex gap-1">
-            <a class="btn btn-sm btn-outline-light" href="{{ url_for('products.modifica', product_id=p.id) }}">Modifica</a>
-            <form method="post" action="{{ url_for('products.duplica', product_id=p.id) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn btn-sm btn-outline-warning">Duplica</button>
-            </form>
-            <form method="post" action="{{ url_for('products.elimina', product_id=p.id) }}" onsubmit="return confirm('Confermi disattivazione prodotto?');">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button class="btn btn-sm btn-outline-danger">Disattiva</button>
-            </form>
-          </td>
-          {% endif %}
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
   </div>
-</div>
+{% endif %}
 {% endblock %}

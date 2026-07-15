@@ -1,62 +1,367 @@
 {% extends "base.html" %}
 {% block title %}Clienti | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header d-flex flex-wrap justify-content-between align-items-end gap-3">
-  <div>
-    <h2>Clienti</h2>
-    <p>Ricerca e gestione dell'anagrafica clienti.</p>
+{% set customer_stats = namespace(total=clienti|length, active=0, private=0, companies=0) %}
+{% for cliente in clienti %}
+  {% if cliente.attivo %}{% set customer_stats.active = customer_stats.active + 1 %}{% endif %}
+  {% if cliente.ragione_sociale or cliente.partita_iva %}
+    {% set customer_stats.companies = customer_stats.companies + 1 %}
+  {% else %}
+    {% set customer_stats.private = customer_stats.private + 1 %}
+  {% endif %}
+{% endfor %}
+
+<section class="customers-page" aria-labelledby="customersTitle" data-default-all-url="{{ url_for('customers.index', stato='tutti') }}">
+  <header class="customers-header">
+    <div>
+      <p class="customers-eyebrow">Anagrafica commerciale</p>
+      <h2 id="customersTitle">Clienti</h2>
+      <p>Ricerca e gestione dell’anagrafica clienti.</p>
+    </div>
+    <a class="btn customers-new-button" href="{{ url_for('customers.nuovo') }}"><i class="bi bi-plus-lg" aria-hidden="true"></i> Nuovo cliente</a>
+  </header>
+
+  <div class="customers-kpis" aria-label="Riepilogo clienti">
+    <article class="customers-kpi is-total">
+      <span class="customers-kpi-icon"><i class="bi bi-people" aria-hidden="true"></i></span>
+      <div><small>Clienti totali</small><strong>{{ customer_stats.total }}</strong><span>Anagrafiche visualizzate</span></div>
+    </article>
+    <article class="customers-kpi is-active">
+      <span class="customers-kpi-icon"><i class="bi bi-person-check" aria-hidden="true"></i></span>
+      <div><small>Attivi</small><strong>{{ customer_stats.active }}</strong><span>{% if customer_stats.total %}{{ "%.1f"|format(customer_stats.active * 100 / customer_stats.total) }}% del totale{% else %}Nessun cliente{% endif %}</span></div>
+    </article>
+    <article class="customers-kpi is-private">
+      <span class="customers-kpi-icon"><i class="bi bi-person" aria-hidden="true"></i></span>
+      <div><small>Privati</small><strong>{{ customer_stats.private }}</strong><span>{% if customer_stats.total %}{{ "%.1f"|format(customer_stats.private * 100 / customer_stats.total) }}% del totale{% else %}Nessun cliente{% endif %}</span></div>
+    </article>
+    <article class="customers-kpi is-company">
+      <span class="customers-kpi-icon"><i class="bi bi-buildings" aria-hidden="true"></i></span>
+      <div><small>Aziende</small><strong>{{ customer_stats.companies }}</strong><span>{% if customer_stats.total %}{{ "%.1f"|format(customer_stats.companies * 100 / customer_stats.total) }}% del totale{% else %}Nessun cliente{% endif %}</span></div>
+    </article>
   </div>
-  <a class="btn btn-coffee" href="{{ url_for('customers.nuovo') }}"><i class="bi bi-person-plus-fill"></i> Nuovo cliente</a>
+
+  <div class="customers-list-card panel-card">
+    <form class="customers-filter-form" id="customersFilterForm">
+      <label class="customers-search-field">
+        <span>Ricerca</span>
+        <span class="customers-input-icon"><i class="bi bi-search" aria-hidden="true"></i><input id="customerSearch" type="search" class="form-control" value="{{ search }}" placeholder="Nome, telefono, email, codice fiscale o Partita IVA"></span>
+      </label>
+      <label>
+        <span>Stato</span>
+        <select id="customerStatus" class="form-select">
+          <option value="all" {% if stato == 'tutti' %}selected{% endif %}>Tutti</option>
+          <option value="active" {% if stato == 'attivi' %}selected{% endif %}>Attivi</option>
+          <option value="inactive" {% if stato == 'eliminati' %}selected{% endif %}>Inattivi</option>
+        </select>
+      </label>
+      <label>
+        <span>Tipologia cliente</span>
+        <select id="customerType" class="form-select">
+          <option value="">Tutte</option>
+          <option value="private" {% if request.args.get('tipologia') == 'private' %}selected{% endif %}>Privati</option>
+          <option value="company" {% if request.args.get('tipologia') == 'company' %}selected{% endif %}>Aziende</option>
+        </select>
+      </label>
+      <label>
+        <span>Città</span>
+        <span class="customers-input-icon"><i class="bi bi-geo-alt" aria-hidden="true"></i><input id="customerCity" type="search" class="form-control" value="{{ request.args.get('citta', '') }}" placeholder="Città o località"></span>
+      </label>
+      <button class="btn customers-filter-button" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Filtra</button>
+      <button class="btn customers-reset-button" type="button" id="customersResetFilters" data-reset-url="{{ url_for('customers.index', stato='tutti') }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Azzera</button>
+    </form>
+
+    <div class="customers-filter-summary">
+      <div class="customers-active-filters" id="customersActiveFilters" aria-label="Filtri attivi"></div>
+      <button type="button" class="customers-clear-filters" id="customersClearFilters" hidden>Azzera filtri</button>
+      <p><strong id="customersResultCount">{{ clienti|length }}</strong> <span id="customersResultLabel">clienti</span></p>
+    </div>
+
+    <div class="customers-table-wrap">
+      <table class="table customers-table align-middle">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Contatti</th>
+            <th>Dati fiscali</th>
+            <th>Indirizzo</th>
+            <th>Ultima vendita</th>
+            <th>Stato</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cliente in clienti %}
+            {% set is_company = cliente.ragione_sociale or cliente.partita_iva %}
+            {% set customer_type = 'company' if is_company else 'private' %}
+            {% set customer_type_label = 'Azienda' if is_company else 'Privato' %}
+            {% set customer_code = ('AZI-' if is_company else 'PRV-') ~ ('%04d'|format(cliente.id)) %}
+            {% set last_sale = cliente.vendite|max(attribute='data_ora') if cliente.vendite else none %}
+            <tr data-customer-row
+                data-customer-id="{{ cliente.id }}"
+                data-search="{{ (cliente.display_name ~ ' ' ~ (cliente.nome or '') ~ ' ' ~ (cliente.cognome or '') ~ ' ' ~ (cliente.telefono or '') ~ ' ' ~ (cliente.email or '') ~ ' ' ~ (cliente.codice_fiscale or '') ~ ' ' ~ (cliente.partita_iva or '') ~ ' ' ~ customer_code)|lower }}"
+                data-status="{{ 'active' if cliente.attivo else 'inactive' }}"
+                data-type="{{ customer_type }}"
+                data-address="{{ (cliente.indirizzo or '')|lower }}"
+                tabindex="0"
+                role="button"
+                aria-label="Apri scheda {{ cliente.display_name }}">
+              <td>
+                <div class="customers-customer-cell">
+                  <span class="customers-avatar">{{ cliente.display_name[:2]|upper }}</span>
+                  <div><strong>{{ cliente.display_name }}</strong><span>{{ customer_code }} · {{ customer_type_label }}</span>{% if cliente.ragione_sociale and cliente.nome != cliente.ragione_sociale %}<small>{{ cliente.nome }} {{ cliente.cognome or '' }}</small>{% endif %}</div>
+                </div>
+              </td>
+              <td>
+                <div class="customers-contact-cell">
+                  <span><i class="bi bi-telephone" aria-hidden="true"></i>{{ cliente.telefono or '—' }}</span>
+                  <span><i class="bi bi-envelope" aria-hidden="true"></i>{{ cliente.email or '—' }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="customers-fiscal-cell">
+                  {% if cliente.partita_iva %}<span>P. IVA</span><strong>{{ cliente.partita_iva }}</strong>
+                  {% elif cliente.codice_fiscale %}<span>Codice fiscale</span><strong>{{ cliente.codice_fiscale }}</strong>
+                  {% else %}<span class="customers-empty-value">—</span>{% endif %}
+                </div>
+              </td>
+              <td><span class="customers-address"><i class="bi bi-geo-alt" aria-hidden="true"></i>{{ cliente.indirizzo or '—' }}</span></td>
+              <td>
+                {% if last_sale %}
+                  <div class="customers-last-sale"><strong>{{ last_sale.data_ora|roma_datetime }}</strong><span>€ {{ "%.2f"|format(last_sale.totale_netto) }} · #{{ last_sale.id }}</span></div>
+                {% else %}<span class="customers-empty-value">Nessuna vendita</span>{% endif %}
+              </td>
+              <td><span class="customers-status-badge is-{{ 'active' if cliente.attivo else 'inactive' }}"><i class="bi bi-circle-fill" aria-hidden="true"></i>{{ 'Attivo' if cliente.attivo else 'Inattivo' }}</span></td>
+              <td>
+                <div class="customers-row-actions">
+                  <a class="btn customers-edit-button" href="{{ url_for('customers.modifica', customer_id=cliente.id) }}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica</a>
+                  <div class="dropdown">
+                    <button class="btn customers-row-menu" type="button" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false" aria-label="Altre azioni per {{ cliente.display_name }}"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end customers-dropdown-menu">
+                      <li><button class="dropdown-item" type="button" data-customer-open="{{ cliente.id }}"><i class="bi bi-eye" aria-hidden="true"></i> Apri</button></li>
+                      <li><a class="dropdown-item" href="{{ url_for('cash.cassa') }}"><i class="bi bi-cart-plus" aria-hidden="true"></i> Nuova vendita</a></li>
+                      <li><hr class="dropdown-divider"></li>
+                      {% if cliente.attivo %}
+                        <li>
+                          <form method="post" action="{{ url_for('customers.elimina', customer_id=cliente.id) }}" onsubmit="return confirm('Disattivare questo cliente? Le vendite storiche resteranno conservate.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="dropdown-item customers-danger-action" type="submit"><i class="bi bi-person-x" aria-hidden="true"></i> Disattiva</button>
+                          </form>
+                        </li>
+                      {% else %}
+                        <li>
+                          <form method="post" action="{{ url_for('customers.ripristina', customer_id=cliente.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="dropdown-item customers-restore-action" type="submit"><i class="bi bi-person-check" aria-hidden="true"></i> Riattiva</button>
+                          </form>
+                        </li>
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              </td>
+            </tr>
+
+            <template id="customerDetail{{ cliente.id }}">
+              <section class="customer-detail-sheet">
+                <header class="customer-detail-hero">
+                  <span class="customer-detail-avatar">{{ cliente.display_name[:2]|upper }}</span>
+                  <div><h3>{{ cliente.display_name }}</h3><p>{{ customer_code }} · Cliente {{ customer_type_label|lower }}</p><span class="customers-status-badge is-{{ 'active' if cliente.attivo else 'inactive' }}">{{ 'Attivo' if cliente.attivo else 'Inattivo' }}</span></div>
+                </header>
+
+                <div class="customer-detail-section">
+                  <h4>Dati principali</h4>
+                  <dl class="customer-detail-list">
+                    <div><dt><i class="bi bi-person" aria-hidden="true"></i> Nome</dt><dd>{{ cliente.nome }} {{ cliente.cognome or '' }}</dd></div>
+                    {% if cliente.ragione_sociale %}<div><dt><i class="bi bi-buildings" aria-hidden="true"></i> Ragione sociale</dt><dd>{{ cliente.ragione_sociale }}</dd></div>{% endif %}
+                    <div><dt><i class="bi bi-telephone" aria-hidden="true"></i> Telefono</dt><dd>{{ cliente.telefono or '—' }}</dd></div>
+                    <div><dt><i class="bi bi-envelope" aria-hidden="true"></i> Email</dt><dd>{{ cliente.email or '—' }}</dd></div>
+                    <div><dt><i class="bi bi-geo-alt" aria-hidden="true"></i> Indirizzo</dt><dd>{{ cliente.indirizzo or '—' }}</dd></div>
+                    <div><dt><i class="bi bi-person-vcard" aria-hidden="true"></i> Codice fiscale</dt><dd>{{ cliente.codice_fiscale or '—' }}</dd></div>
+                    <div><dt><i class="bi bi-building-check" aria-hidden="true"></i> Partita IVA</dt><dd>{{ cliente.partita_iva or '—' }}</dd></div>
+                    <div class="customer-detail-notes"><dt><i class="bi bi-card-text" aria-hidden="true"></i> Note</dt><dd>{{ cliente.note or 'Nessuna nota' }}</dd></div>
+                  </dl>
+                </div>
+
+                <div class="customer-detail-section">
+                  <h4>Ultima vendita</h4>
+                  {% if last_sale %}
+                    <a class="customer-detail-sale" href="{{ url_for('sales.detail', sale_id=last_sale.id) }}"><span><i class="bi bi-calendar3" aria-hidden="true"></i><strong>{{ last_sale.data_ora|roma_datetime }}</strong><small>Vendita #{{ last_sale.id }}</small></span><strong>€ {{ "%.2f"|format(last_sale.totale_netto) }}</strong></a>
+                  {% else %}
+                    <div class="customer-detail-no-sale"><i class="bi bi-receipt" aria-hidden="true"></i><span>Nessuna vendita associata</span></div>
+                  {% endif %}
+                </div>
+
+                <div class="customer-detail-actions">
+                  <a class="btn customer-detail-edit" href="{{ url_for('customers.modifica', customer_id=cliente.id) }}"><i class="bi bi-pencil" aria-hidden="true"></i> Modifica cliente</a>
+                  <a class="btn customer-detail-new-sale" href="{{ url_for('cash.cassa') }}"><i class="bi bi-cart-plus" aria-hidden="true"></i> Nuova vendita</a>
+                </div>
+              </section>
+            </template>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="customers-empty-state" id="customersEmptyState" hidden><i class="bi bi-people" aria-hidden="true"></i><strong>Nessun cliente trovato</strong><span>Prova a modificare i filtri di ricerca.</span></div>
+
+    <div class="customers-pagination" id="customersPagination">
+      <label>Mostra <select class="form-select" id="customersPageSize"><option value="10">10</option><option value="25" selected>25</option><option value="50">50</option></select> righe per pagina</label>
+      <nav aria-label="Pagine clienti"><button type="button" id="customersPrevPage" aria-label="Pagina precedente"><i class="bi bi-chevron-left" aria-hidden="true"></i></button><span id="customersPageButtons"></span><button type="button" id="customersNextPage" aria-label="Pagina successiva"><i class="bi bi-chevron-right" aria-hidden="true"></i></button></nav>
+      <span id="customersPaginationSummary"></span>
+    </div>
+  </div>
 </section>
 
-<div class="panel-card mb-3">
-  <form method="get" class="row g-2 align-items-end">
-    <div class="col-lg-7">
-      <label class="form-label" for="customerSearch">Cerca cliente</label>
-      <input id="customerSearch" type="search" name="q" class="form-control" value="{{ search }}" placeholder="Nome, telefono, email, codice fiscale o Partita IVA">
-    </div>
-    <div class="col-lg-3">
-      <label class="form-label" for="customerStatus">Stato</label>
-      <select id="customerStatus" name="stato" class="form-select">
-        <option value="attivi" {% if stato == 'attivi' %}selected{% endif %}>Attivi</option>
-        <option value="eliminati" {% if stato == 'eliminati' %}selected{% endif %}>Eliminati</option>
-        <option value="tutti" {% if stato == 'tutti' %}selected{% endif %}>Tutti</option>
-      </select>
-    </div>
-    <div class="col-lg-2 d-grid"><button class="btn btn-outline-light"><i class="bi bi-search"></i> Cerca</button></div>
-  </form>
-</div>
-
-<div class="panel-card">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead><tr><th>Cliente</th><th>Contatti</th><th>Dati fiscali</th><th>Indirizzo</th><th>Stato</th><th></th></tr></thead>
-      <tbody>
-        {% for cliente in clienti %}
-          <tr>
-            <td><strong>{{ cliente.display_name }}</strong>{% if cliente.ragione_sociale and cliente.nome != cliente.ragione_sociale %}<small class="d-block text-body-secondary">{{ cliente.nome }} {{ cliente.cognome or '' }}</small>{% endif %}</td>
-            <td>{{ cliente.telefono or '-' }}{% if cliente.email %}<small class="d-block">{{ cliente.email }}</small>{% endif %}</td>
-            <td>{% if cliente.partita_iva %}P.IVA {{ cliente.partita_iva }}{% elif cliente.codice_fiscale %}CF {{ cliente.codice_fiscale }}{% else %}-{% endif %}</td>
-            <td>{{ cliente.indirizzo or '-' }}</td>
-            <td>{% if cliente.attivo %}<span class="badge bg-success">Attivo</span>{% else %}<span class="badge bg-secondary">Eliminato</span>{% endif %}</td>
-            <td class="text-nowrap">
-              <a class="btn btn-sm btn-outline-light" href="{{ url_for('customers.modifica', customer_id=cliente.id) }}" aria-label="Modifica {{ cliente.display_name }}"><i class="bi bi-pencil"></i></a>
-              {% if cliente.attivo %}
-                <form method="post" action="{{ url_for('customers.elimina', customer_id=cliente.id) }}" class="d-inline" onsubmit="return confirm('Eliminare questo cliente dall’elenco attivo?')">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" aria-label="Elimina {{ cliente.display_name }}"><i class="bi bi-trash"></i></button>
-                </form>
-              {% else %}
-                <form method="post" action="{{ url_for('customers.ripristina', customer_id=cliente.id) }}" class="d-inline">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-success">Ripristina</button>
-                </form>
-              {% endif %}
-            </td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="text-center py-4">Nessun cliente trovato.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="offcanvas offcanvas-end customer-detail-panel" tabindex="-1" id="customerDetailPanel" aria-labelledby="customerDetailPanelTitle">
+  <div class="offcanvas-header">
+    <div><p class="customers-eyebrow">Scheda cliente</p><h2 class="offcanvas-title" id="customerDetailPanelTitle">Dettaglio cliente</h2></div>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Chiudi"></button>
   </div>
+  <div class="offcanvas-body" id="customerDetailPanelBody"></div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const page = document.querySelector(".customers-page");
+    const queryParameters = new URLSearchParams(window.location.search);
+    if (!queryParameters.has("stato") && !queryParameters.has("q")) {
+      window.location.replace(page.dataset.defaultAllUrl);
+      return;
+    }
+
+    const rows = Array.from(document.querySelectorAll("[data-customer-row]"));
+    const filterForm = document.getElementById("customersFilterForm");
+    const searchInput = document.getElementById("customerSearch");
+    const statusFilter = document.getElementById("customerStatus");
+    const typeFilter = document.getElementById("customerType");
+    const cityFilter = document.getElementById("customerCity");
+    const activeFilters = document.getElementById("customersActiveFilters");
+    const clearFilters = document.getElementById("customersClearFilters");
+    const resultCount = document.getElementById("customersResultCount");
+    const resultLabel = document.getElementById("customersResultLabel");
+    const emptyState = document.getElementById("customersEmptyState");
+    const pagination = document.getElementById("customersPagination");
+    const pageSizeSelect = document.getElementById("customersPageSize");
+    const paginationSummary = document.getElementById("customersPaginationSummary");
+    const pageButtons = document.getElementById("customersPageButtons");
+    const previousPage = document.getElementById("customersPrevPage");
+    const nextPage = document.getElementById("customersNextPage");
+    const detailPanel = document.getElementById("customerDetailPanel");
+    const detailPanelBody = document.getElementById("customerDetailPanelBody");
+    const detailPanelTitle = document.getElementById("customerDetailPanelTitle");
+    const detailOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(detailPanel);
+    let currentPage = 1;
+
+    const normalize = value => (value || "").toLocaleLowerCase("it-IT").trim();
+    const currentFilters = () => ({ search: normalize(searchInput.value), status: statusFilter.value, type: typeFilter.value, city: normalize(cityFilter.value) });
+    const filteredRows = () => {
+      const filters = currentFilters();
+      return rows.filter(row => (!filters.search || normalize(row.dataset.search).includes(filters.search))
+        && (filters.status === "all" || row.dataset.status === filters.status)
+        && (!filters.type || row.dataset.type === filters.type)
+        && (!filters.city || normalize(row.dataset.address).includes(filters.city)));
+    };
+
+    const addFilterChip = (label, value, control) => {
+      if (!value) return;
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "customers-filter-chip";
+      chip.innerHTML = `<span>${label}: <strong></strong></span><i class="bi bi-x" aria-hidden="true"></i>`;
+      chip.querySelector("strong").textContent = value;
+      chip.addEventListener("click", () => {
+        control.value = control === statusFilter ? "all" : "";
+        currentPage = 1;
+        render();
+      });
+      activeFilters.append(chip);
+    };
+
+    const renderChips = () => {
+      activeFilters.replaceChildren();
+      addFilterChip("Ricerca", searchInput.value.trim(), searchInput);
+      if (statusFilter.value !== "all") addFilterChip("Stato", statusFilter.options[statusFilter.selectedIndex].text, statusFilter);
+      if (typeFilter.value) addFilterChip("Tipologia", typeFilter.options[typeFilter.selectedIndex].text, typeFilter);
+      addFilterChip("Città", cityFilter.value.trim(), cityFilter);
+      clearFilters.hidden = !activeFilters.children.length;
+    };
+
+    const renderPageButtons = totalPages => {
+      pageButtons.replaceChildren();
+      for (let pageNumber = 1; pageNumber <= totalPages; pageNumber += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = pageNumber;
+        button.classList.toggle("active", pageNumber === currentPage);
+        button.setAttribute("aria-label", `Pagina ${pageNumber}`);
+        if (pageNumber === currentPage) button.setAttribute("aria-current", "page");
+        button.addEventListener("click", () => { currentPage = pageNumber; render(); });
+        pageButtons.append(button);
+      }
+    };
+
+    const render = () => {
+      const matches = filteredRows();
+      const pageSize = Number(pageSizeSelect.value);
+      const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * pageSize;
+      const end = Math.min(start + pageSize, matches.length);
+      rows.forEach(row => { row.hidden = true; });
+      matches.slice(start, end).forEach(row => { row.hidden = false; });
+      resultCount.textContent = matches.length;
+      resultLabel.textContent = matches.length === 1 ? "cliente" : "clienti";
+      emptyState.hidden = matches.length > 0;
+      pagination.hidden = matches.length === 0;
+      paginationSummary.textContent = matches.length ? `${start + 1}–${end} di ${matches.length} risultati` : "";
+      previousPage.disabled = currentPage === 1;
+      nextPage.disabled = currentPage === totalPages;
+      renderPageButtons(totalPages);
+      renderChips();
+    };
+
+    const resetFilters = () => {
+      searchInput.value = "";
+      statusFilter.value = "all";
+      typeFilter.value = "";
+      cityFilter.value = "";
+      currentPage = 1;
+      render();
+    };
+
+    const openCustomer = customerId => {
+      const template = document.getElementById(`customerDetail${customerId}`);
+      if (!template) return;
+      detailPanelBody.replaceChildren(template.content.cloneNode(true));
+      const title = template.content.querySelector("h3")?.textContent || "Dettaglio cliente";
+      detailPanelTitle.textContent = title;
+      detailOffcanvas.show();
+    };
+
+    filterForm.addEventListener("submit", event => { event.preventDefault(); currentPage = 1; render(); });
+    pageSizeSelect.addEventListener("change", () => { currentPage = 1; render(); });
+    previousPage.addEventListener("click", () => { if (currentPage > 1) { currentPage -= 1; render(); } });
+    nextPage.addEventListener("click", () => { const pages = Math.max(1, Math.ceil(filteredRows().length / Number(pageSizeSelect.value))); if (currentPage < pages) { currentPage += 1; render(); } });
+    document.getElementById("customersResetFilters").addEventListener("click", event => {
+      if (window.location.search && (queryParameters.has("q") || queryParameters.get("stato") !== "tutti")) window.location.assign(event.currentTarget.dataset.resetUrl);
+      else resetFilters();
+    });
+    clearFilters.addEventListener("click", resetFilters);
+    document.addEventListener("click", event => {
+      const explicitTrigger = event.target.closest("[data-customer-open]");
+      if (explicitTrigger) { openCustomer(explicitTrigger.dataset.customerOpen); return; }
+      const row = event.target.closest("[data-customer-row]");
+      if (!row || event.target.closest("a, button, input, select, form, .dropdown")) return;
+      openCustomer(row.dataset.customerId);
+    });
+    document.addEventListener("keydown", event => {
+      const row = event.target.closest("[data-customer-row]");
+      if (row && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); openCustomer(row.dataset.customerId); }
+    });
+
+    render();
+  })();
+</script>
 {% endblock %}

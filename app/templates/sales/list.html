@@ -1,84 +1,401 @@
 {% extends "base.html" %}
 {% block title %}Vendite | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header">
-  <h2>Vendite</h2>
-  <p>Storico scontrini con filtro periodo e stato.</p>
+<section class="sales-page" aria-labelledby="salesTitle">
+  <header class="sales-header">
+    <div>
+      <p class="sales-eyebrow">Registro transazioni</p>
+      <h2 id="salesTitle">Vendite</h2>
+      <p>Incassi e scontrini del punto vendita attualmente selezionato.</p>
+    </div>
+    <div class="sales-header-actions">
+      <a class="btn sales-export-button" href="{{ url_for('report.export_pdf') }}">
+        <i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF giornaliero
+      </a>
+      <a class="btn sales-new-button" href="{{ url_for('cash.cassa') }}">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i> Nuova vendita
+      </a>
+    </div>
+  </header>
+
+  <div class="sales-kpis" aria-label="Riepilogo vendite del periodo">
+    <article class="sales-kpi is-revenue">
+      <span class="sales-kpi-icon"><i class="bi bi-cash-stack" aria-hidden="true"></i></span>
+      <div><small>Incasso totale</small><strong id="salesRevenueKpi">€ 0,00</strong><span>Vendite completate</span></div>
+    </article>
+    <article class="sales-kpi is-count">
+      <span class="sales-kpi-icon"><i class="bi bi-receipt" aria-hidden="true"></i></span>
+      <div><small>Numero vendite</small><strong id="salesCountKpi">0</strong><span>Transazioni completate</span></div>
+    </article>
+    <article class="sales-kpi is-ticket">
+      <span class="sales-kpi-icon"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i></span>
+      <div><small>Ticket medio</small><strong id="salesAverageKpi">€ 0,00</strong><span id="salesPeriodLabel">Oggi</span></div>
+    </article>
+    <article class="sales-kpi is-cancelled">
+      <span class="sales-kpi-icon"><i class="bi bi-x-circle" aria-hidden="true"></i></span>
+      <div><small>Vendite annullate</small><strong id="salesCancelledKpi">0</strong><span>Escluse dall’incasso</span></div>
+    </article>
+  </div>
+
+  <div class="sales-toolbar panel-card">
+    <div class="sales-period-row">
+      <div class="sales-period-buttons" role="group" aria-label="Periodo vendite">
+        <button type="button" class="sales-period-button" data-sales-period="today">Oggi</button>
+        <button type="button" class="sales-period-button" data-sales-period="yesterday">Ieri</button>
+        <button type="button" class="sales-period-button" data-sales-period="7days">Ultimi 7 giorni</button>
+        <button type="button" class="sales-period-button" data-sales-period="month">Questo mese</button>
+        <button type="button" class="sales-period-button" data-sales-period="custom">Personalizzato</button>
+      </div>
+      <div class="sales-custom-dates" id="salesCustomDates" {% if not filtri.get('data_da') and not filtri.get('data_a') %}hidden{% endif %}>
+        <label><span>Dal</span><input type="date" class="form-control" id="salesDateFrom" value="{{ filtri.get('data_da', '') }}"></label>
+        <span aria-hidden="true">—</span>
+        <label><span>Al</span><input type="date" class="form-control" id="salesDateTo" value="{{ filtri.get('data_a', '') }}"></label>
+      </div>
+    </div>
+
+    <div class="sales-filter-grid" aria-label="Filtri vendite">
+      <label>
+        <span>Stato</span>
+        <select class="form-select" id="salesStatusFilter">
+          <option value="">Tutti gli stati</option>
+          <option value="completata" {% if filtri.get('stato') == 'completata' %}selected{% endif %}>Completata</option>
+          <option value="annullata" {% if filtri.get('stato') == 'annullata' %}selected{% endif %}>Annullata</option>
+        </select>
+      </label>
+      <label>
+        <span>Pagamento</span>
+        <select class="form-select" id="salesPaymentFilter">
+          <option value="">Tutti i pagamenti</option>
+          <option value="contanti" {% if filtri.get('metodo_pagamento') == 'contanti' %}selected{% endif %}>Contanti</option>
+          <option value="carta" {% if filtri.get('metodo_pagamento') == 'carta' %}selected{% endif %}>Carta</option>
+          <option value="bonifico" {% if filtri.get('metodo_pagamento') == 'bonifico' %}selected{% endif %}>Bonifico</option>
+          <option value="altro" {% if filtri.get('metodo_pagamento') == 'altro' %}selected{% endif %}>Altro</option>
+        </select>
+      </label>
+      <label>
+        <span>Operatore</span>
+        <select class="form-select" id="salesOperatorFilter" data-initial-value="{{ filtri.get('operatore', '')|lower }}">
+          <option value="">Tutti gli operatori</option>
+        </select>
+      </label>
+      <label>
+        <span>Cliente</span>
+        <span class="sales-input-icon"><i class="bi bi-person" aria-hidden="true"></i><input type="search" class="form-control" id="salesCustomerFilter" value="{{ filtri.get('cliente', '') }}" placeholder="Nome o ragione sociale"></span>
+      </label>
+      <label class="sales-id-filter">
+        <span>ID vendita</span>
+        <span class="sales-input-icon"><i class="bi bi-hash" aria-hidden="true"></i><input type="search" inputmode="numeric" class="form-control" id="salesIdFilter" value="{{ filtri.get('id', '') }}" placeholder="Es. 17"></span>
+      </label>
+      <button type="button" class="btn sales-filter-button" id="salesApplyFilters"><i class="bi bi-funnel" aria-hidden="true"></i> Filtra</button>
+      <button type="button" class="btn sales-reset-button" id="salesResetFilters" data-reset-url="{{ url_for('sales.index') }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i> Azzera</button>
+    </div>
+  </div>
+
+  <div class="sales-table-card panel-card">
+    <div class="sales-table-heading">
+      <div>
+        <h3>Storico vendite</h3>
+        <p><strong id="salesResultCount">{{ vendite|length }}</strong> <span id="salesResultLabel">vendite</span> trovate</p>
+      </div>
+      <span class="sales-live-status"><i class="bi bi-shield-check" aria-hidden="true"></i> Importi IVA inclusa</span>
+    </div>
+
+    <div class="sales-table-wrap">
+      <table class="table sales-table align-middle">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Data e ora</th>
+            <th class="text-end">Totale</th>
+            <th>Pagamento</th>
+            <th>Cliente</th>
+            <th>Operatore</th>
+            <th>Stato</th>
+            <th class="text-end">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in vendite %}
+            {% set customer_name = v.customer.display_name if v.customer else 'Cliente generico' %}
+            {% set operator_name = v.operatore.username if v.operatore else '-' %}
+            <tr data-sale-row
+                data-sale-id="{{ v.id }}"
+                data-datetime="{{ v.data_ora.isoformat() }}Z"
+                data-total="{{ v.totale_netto }}"
+                data-status="{{ v.stato }}"
+                data-payment="{{ v.metodo_pagamento }}"
+                data-operator="{{ operator_name|lower }}"
+                data-customer="{{ customer_name|lower }}">
+              <td><strong class="sales-id">#{{ v.id }}</strong></td>
+              <td><time datetime="{{ v.data_ora.isoformat() }}Z"><strong>{{ v.data_ora|roma_datetime }}</strong></time></td>
+              <td class="text-end"><strong class="sales-total">€ {{ "%.2f"|format(v.totale_netto) }}</strong><span class="sales-vat-note">IVA € {{ "%.2f"|format(v.totale_iva or 0) }}</span></td>
+              <td>
+                <span class="sales-payment-method is-{{ v.metodo_pagamento }}">
+                  <i class="bi {% if v.metodo_pagamento == 'contanti' %}bi-cash-stack{% elif v.metodo_pagamento == 'carta' %}bi-credit-card{% elif v.metodo_pagamento == 'bonifico' %}bi-bank{% else %}bi-wallet2{% endif %}" aria-hidden="true"></i>
+                  {{ v.metodo_pagamento|replace('_', ' ')|title }}
+                </span>
+              </td>
+              <td><span class="sales-customer"><i class="bi bi-person" aria-hidden="true"></i>{{ customer_name }}</span></td>
+              <td><span class="sales-operator"><i class="bi bi-person-badge" aria-hidden="true"></i>{{ operator_name }}</span></td>
+              <td><span class="sales-status-badge is-{{ v.stato }}"><i class="bi {% if v.stato == 'completata' %}bi-check-circle-fill{% else %}bi-x-circle-fill{% endif %}" aria-hidden="true"></i>{{ v.stato|title }}</span></td>
+              <td>
+                <div class="sales-row-actions">
+                  <button type="button" class="btn sales-open-button" data-bs-toggle="offcanvas" data-bs-target="#saleDetailPanel" data-sale-open="{{ v.id }}" data-sale-url="{{ url_for('sales.detail', sale_id=v.id) }}">Apri</button>
+                  <div class="dropdown">
+                    <button class="btn sales-row-menu" type="button" data-bs-toggle="dropdown" data-bs-boundary="viewport" aria-expanded="false" aria-label="Altre azioni per vendita #{{ v.id }}"><i class="bi bi-three-dots-vertical" aria-hidden="true"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end sales-dropdown-menu">
+                      <li><a class="dropdown-item" href="{{ url_for('cash.ricevuta', sale_id=v.id) }}" target="_blank" rel="noopener"><i class="bi bi-printer" aria-hidden="true"></i> Stampa ricevuta</a></li>
+                      <li><a class="dropdown-item" href="{{ url_for('sales.detail', sale_id=v.id) }}"><i class="bi bi-box-arrow-up-right" aria-hidden="true"></i> Pagina completa</a></li>
+                      {% if current_user.has_role('Admin') and v.stato == 'completata' %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                          <form method="post" action="{{ url_for('sales.annulla', sale_id=v.id) }}" onsubmit="return confirm('Confermi annullamento vendita e ripristino stock?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="motivo" value="Annullamento da elenco vendite">
+                            <button class="dropdown-item sales-cancel-action" type="submit"><i class="bi bi-x-octagon" aria-hidden="true"></i> Annulla vendita</button>
+                          </form>
+                        </li>
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="sales-empty-state" id="salesEmptyState" hidden>
+      <i class="bi bi-receipt" aria-hidden="true"></i>
+      <strong>Nessuna vendita trovata</strong>
+      <span>Prova a cambiare il periodo o i filtri.</span>
+    </div>
+
+    <div class="sales-pagination" id="salesPagination" aria-label="Paginazione vendite">
+      <div class="table-page-size">
+        <span>Mostra</span>
+        <select id="salesPageSize" class="form-select form-select-sm" aria-label="Righe vendite per pagina">
+          <option value="10" selected>10</option>
+          <option value="20">20</option>
+          <option value="50">50</option>
+        </select>
+        <span>righe per pagina</span>
+      </div>
+      <span id="salesPaginationSummary"></span>
+      <nav aria-label="Pagine vendite">
+        <button type="button" id="salesPrevPage" aria-label="Pagina precedente"><i class="bi bi-chevron-left" aria-hidden="true"></i></button>
+        <span id="salesPageButtons"></span>
+        <button type="button" id="salesNextPage" aria-label="Pagina successiva"><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </nav>
+    </div>
+  </div>
 </section>
 
-<div class="panel-card mb-3">
-  <form method="get" class="row g-2">
-    <div class="col-md-2">
-      <input type="date" name="data_da" class="form-control" value="{{ filtri.get('data_da','') }}">
-    </div>
-    <div class="col-md-2">
-      <input type="date" name="data_a" class="form-control" value="{{ filtri.get('data_a','') }}">
-    </div>
-    <div class="col-md-2">
-      <select name="stato" class="form-select">
-        <option value="">Stato</option>
-        <option value="completata" {% if filtri.get('stato') == 'completata' %}selected{% endif %}>Completata</option>
-        <option value="annullata" {% if filtri.get('stato') == 'annullata' %}selected{% endif %}>Annullata</option>
-      </select>
-    </div>
-    <div class="col-md-2">
-      <select name="metodo_pagamento" class="form-select">
-        <option value="">Pagamento</option>
-        <option value="contanti" {% if filtri.get('metodo_pagamento') == 'contanti' %}selected{% endif %}>Contanti</option>
-        <option value="carta" {% if filtri.get('metodo_pagamento') == 'carta' %}selected{% endif %}>Carta</option>
-        <option value="bonifico" {% if filtri.get('metodo_pagamento') == 'bonifico' %}selected{% endif %}>Bonifico</option>
-        <option value="altro" {% if filtri.get('metodo_pagamento') == 'altro' %}selected{% endif %}>Altro</option>
-      </select>
-    </div>
-    <div class="col-md-2 d-grid">
-      <button class="btn btn-outline-light">Filtra</button>
-    </div>
-    <div class="col-md-2 d-grid">
-      <a class="btn btn-coffee" href="{{ url_for('cash.cassa') }}">Nuova vendita</a>
-    </div>
-  </form>
-</div>
-
-<div class="panel-card">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Data/Ora</th>
-          <th>Totale netto</th>
-          <th>IVA inclusa</th>
-          <th>Pagamento</th>
-          <th>Cliente</th>
-          <th>Operatore</th>
-          <th>Stato</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for v in vendite %}
-          <tr>
-            <td>#{{ v.id }}</td>
-            <td>{{ v.data_ora|roma_datetime }}</td>
-            <td><strong>EUR {{ "%.2f"|format(v.totale_netto) }}</strong></td>
-            <td>EUR {{ "%.2f"|format(v.totale_iva or 0) }}</td>
-            <td>{{ v.metodo_pagamento }}</td>
-            <td>{{ v.customer.display_name if v.customer else 'Generico' }}</td>
-            <td>{{ v.operatore.username if v.operatore else "-" }}</td>
-            <td>
-              {% if v.stato == 'completata' %}
-                <span class="badge bg-success">Completata</span>
-              {% else %}
-                <span class="badge bg-danger">Annullata</span>
-              {% endif %}
-            </td>
-            <td>
-              <a class="btn btn-sm btn-outline-light" href="{{ url_for('sales.detail', sale_id=v.id) }}">Dettaglio</a>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="offcanvas offcanvas-end sales-detail-panel" tabindex="-1" id="saleDetailPanel" aria-labelledby="saleDetailPanelTitle">
+  <div class="offcanvas-header">
+    <div><p class="sales-eyebrow">Scheda vendita</p><h2 class="offcanvas-title" id="saleDetailPanelTitle">Dettaglio vendita</h2></div>
+    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Chiudi"></button>
+  </div>
+  <div class="offcanvas-body" id="saleDetailPanelBody">
+    <div class="sales-detail-loader"><span class="spinner-border" aria-hidden="true"></span><strong>Caricamento dettaglio…</strong></div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const rows = Array.from(document.querySelectorAll("[data-sale-row]"));
+    const periodButtons = Array.from(document.querySelectorAll("[data-sales-period]"));
+    const customDates = document.getElementById("salesCustomDates");
+    const dateFrom = document.getElementById("salesDateFrom");
+    const dateTo = document.getElementById("salesDateTo");
+    const statusFilter = document.getElementById("salesStatusFilter");
+    const paymentFilter = document.getElementById("salesPaymentFilter");
+    const operatorFilter = document.getElementById("salesOperatorFilter");
+    const customerFilter = document.getElementById("salesCustomerFilter");
+    const idFilter = document.getElementById("salesIdFilter");
+    const resultCount = document.getElementById("salesResultCount");
+    const resultLabel = document.getElementById("salesResultLabel");
+    const revenueKpi = document.getElementById("salesRevenueKpi");
+    const countKpi = document.getElementById("salesCountKpi");
+    const averageKpi = document.getElementById("salesAverageKpi");
+    const cancelledKpi = document.getElementById("salesCancelledKpi");
+    const periodLabel = document.getElementById("salesPeriodLabel");
+    const emptyState = document.getElementById("salesEmptyState");
+    const pagination = document.getElementById("salesPagination");
+    const paginationSummary = document.getElementById("salesPaginationSummary");
+    const pageButtons = document.getElementById("salesPageButtons");
+    const previousPage = document.getElementById("salesPrevPage");
+    const nextPage = document.getElementById("salesNextPage");
+    const pageSizeControl = document.getElementById("salesPageSize");
+    const detailPanelBody = document.getElementById("saleDetailPanelBody");
+    const detailPanelTitle = document.getElementById("saleDetailPanelTitle");
+    const detailCache = new Map();
+    let pageSize = Number(pageSizeControl.value);
+    let activePeriod = (dateFrom.value || dateTo.value) ? "custom" : "today";
+    let currentPage = 1;
+
+    const normalize = value => (value || "").toLocaleLowerCase("it-IT").trim();
+    const currency = new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" });
+
+    Array.from(new Set(rows.map(row => row.dataset.operator).filter(value => value && value !== "-")))
+      .sort((a, b) => a.localeCompare(b, "it"))
+      .forEach(operator => {
+        const option = document.createElement("option");
+        option.value = operator;
+        option.textContent = operator.charAt(0).toLocaleUpperCase("it-IT") + operator.slice(1);
+        operatorFilter.append(option);
+      });
+    operatorFilter.value = operatorFilter.dataset.initialValue || "";
+
+    const getPeriodBounds = () => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (activePeriod === "today") return [today, new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)];
+      if (activePeriod === "yesterday") return [new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1), today];
+      if (activePeriod === "7days") return [new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6), new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)];
+      if (activePeriod === "month") return [new Date(today.getFullYear(), today.getMonth(), 1), new Date(today.getFullYear(), today.getMonth() + 1, 1)];
+      const start = dateFrom.value ? new Date(`${dateFrom.value}T00:00:00`) : null;
+      const end = dateTo.value ? new Date(`${dateTo.value}T00:00:00`) : null;
+      if (end) end.setDate(end.getDate() + 1);
+      return [start, end];
+    };
+
+    const matchesFilters = row => {
+      const [start, end] = getPeriodBounds();
+      const date = new Date(row.dataset.datetime);
+      const searchedId = normalize(idFilter.value).replace(/\D/g, "");
+      return (!start || date >= start)
+        && (!end || date < end)
+        && (!statusFilter.value || row.dataset.status === statusFilter.value)
+        && (!paymentFilter.value || row.dataset.payment === paymentFilter.value)
+        && (!operatorFilter.value || row.dataset.operator === operatorFilter.value)
+        && (!normalize(customerFilter.value) || normalize(row.dataset.customer).includes(normalize(customerFilter.value)))
+        && (!searchedId || row.dataset.saleId === searchedId);
+    };
+
+    const filteredRows = () => rows.filter(matchesFilters);
+
+    const renderPageButtons = totalPages => {
+      pageButtons.replaceChildren();
+      for (let page = 1; page <= totalPages; page += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = page;
+        button.classList.toggle("active", page === currentPage);
+        button.setAttribute("aria-label", `Pagina ${page}`);
+        if (page === currentPage) button.setAttribute("aria-current", "page");
+        button.addEventListener("click", () => { currentPage = page; render(); });
+        pageButtons.append(button);
+      }
+    };
+
+    const render = () => {
+      const matches = filteredRows();
+      const completed = matches.filter(row => row.dataset.status === "completata");
+      const cancelled = matches.filter(row => row.dataset.status === "annullata");
+      const revenue = completed.reduce((sum, row) => sum + (Number(row.dataset.total) || 0), 0);
+      const average = completed.length ? revenue / completed.length : 0;
+      const totalPages = Math.max(1, Math.ceil(matches.length / pageSize));
+      currentPage = Math.min(currentPage, totalPages);
+      const start = (currentPage - 1) * pageSize;
+      const end = Math.min(start + pageSize, matches.length);
+
+      rows.forEach(row => { row.hidden = true; });
+      matches.slice(start, end).forEach(row => { row.hidden = false; });
+      revenueKpi.textContent = currency.format(revenue);
+      countKpi.textContent = completed.length;
+      averageKpi.textContent = currency.format(average);
+      cancelledKpi.textContent = cancelled.length;
+      resultCount.textContent = matches.length;
+      resultLabel.textContent = matches.length === 1 ? "vendita" : "vendite";
+      emptyState.hidden = matches.length > 0;
+      pagination.hidden = matches.length === 0;
+      paginationSummary.textContent = matches.length ? `${start + 1}–${end} di ${matches.length}` : "";
+      previousPage.disabled = currentPage === 1;
+      nextPage.disabled = currentPage === totalPages;
+      renderPageButtons(totalPages);
+    };
+
+    const setPeriod = period => {
+      activePeriod = period;
+      currentPage = 1;
+      customDates.hidden = period !== "custom";
+      const labels = { today: "Oggi", yesterday: "Ieri", "7days": "Ultimi 7 giorni", month: "Questo mese", custom: "Periodo personalizzato" };
+      periodLabel.textContent = labels[period];
+      periodButtons.forEach(button => {
+        const active = button.dataset.salesPeriod === period;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      render();
+    };
+
+    periodButtons.forEach(button => button.addEventListener("click", () => setPeriod(button.dataset.salesPeriod)));
+    [statusFilter, paymentFilter, operatorFilter].forEach(control => control.addEventListener("change", () => { currentPage = 1; render(); }));
+    [customerFilter, idFilter].forEach(control => control.addEventListener("input", () => { currentPage = 1; render(); }));
+    document.getElementById("salesApplyFilters").addEventListener("click", () => { currentPage = 1; render(); });
+    pageSizeControl.addEventListener("change", () => { pageSize = Number(pageSizeControl.value); currentPage = 1; render(); });
+    [dateFrom, dateTo].forEach(control => control.addEventListener("change", () => { activePeriod = "custom"; currentPage = 1; render(); }));
+    previousPage.addEventListener("click", () => { if (currentPage > 1) { currentPage -= 1; render(); } });
+    nextPage.addEventListener("click", () => {
+      const totalPages = Math.max(1, Math.ceil(filteredRows().length / pageSize));
+      if (currentPage < totalPages) { currentPage += 1; render(); }
+    });
+
+    document.getElementById("salesResetFilters").addEventListener("click", event => {
+      if (window.location.search) {
+        window.location.assign(event.currentTarget.dataset.resetUrl);
+        return;
+      }
+      statusFilter.value = "";
+      paymentFilter.value = "";
+      operatorFilter.value = "";
+      customerFilter.value = "";
+      idFilter.value = "";
+      dateFrom.value = "";
+      dateTo.value = "";
+      setPeriod("today");
+    });
+
+    document.addEventListener("click", async event => {
+      const trigger = event.target.closest("[data-sale-open]");
+      if (!trigger) return;
+      const saleId = trigger.dataset.saleOpen;
+      const saleUrl = trigger.dataset.saleUrl;
+      detailPanelTitle.textContent = `Vendita #${saleId}`;
+      if (detailCache.has(saleId)) {
+        detailPanelBody.innerHTML = detailCache.get(saleId);
+        return;
+      }
+      detailPanelBody.innerHTML = '<div class="sales-detail-loader"><span class="spinner-border" aria-hidden="true"></span><strong>Caricamento dettaglio…</strong></div>';
+      try {
+        const response = await fetch(saleUrl, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+        if (!response.ok) throw new Error("Dettaglio non disponibile");
+        const page = new DOMParser().parseFromString(await response.text(), "text/html");
+        const detail = page.getElementById("saleDetailPanelContent");
+        if (!detail) throw new Error("Contenuto dettaglio non trovato");
+        detailCache.set(saleId, detail.outerHTML);
+        detailPanelBody.innerHTML = detail.outerHTML;
+      } catch (error) {
+        const state = document.createElement("div");
+        state.className = "sales-detail-error";
+        const icon = document.createElement("i");
+        icon.className = "bi bi-exclamation-triangle";
+        const message = document.createElement("strong");
+        message.textContent = "Impossibile caricare il dettaglio.";
+        const link = document.createElement("a");
+        link.className = "btn sales-open-button";
+        link.href = saleUrl;
+        link.textContent = "Apri la pagina completa";
+        state.append(icon, message, link);
+        detailPanelBody.replaceChildren(state);
+      }
+    });
+
+    setPeriod(activePeriod);
+  })();
+</script>
 {% endblock %}

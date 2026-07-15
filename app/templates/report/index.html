@@ -1,44 +1,281 @@
 {% extends "base.html" %}
 {% block title %}Report | 7MilaCaffe{% endblock %}
 {% block content %}
-<section class="page-header">
-  <h2>Report</h2>
-  <p>Esportazione dati in CSV e PDF per controllo operativo e amministrativo.</p>
+<section class="reports-page" aria-labelledby="reportsTitle">
+  <header class="reports-header">
+    <div>
+      <p class="reports-eyebrow">Centro esportazioni</p>
+      <h2 id="reportsTitle">Report</h2>
+      <p>Scarica i dati operativi e amministrativi del punto vendita selezionato.</p>
+    </div>
+    <span class="reports-security-note"><i class="bi bi-shield-check" aria-hidden="true"></i> File generati in modo sicuro</span>
+  </header>
+
+  <div class="reports-period-card panel-card" aria-labelledby="reportsPeriodTitle">
+    <div class="reports-period-heading">
+      <span class="reports-period-icon"><i class="bi bi-calendar3" aria-hidden="true"></i></span>
+      <div>
+        <h3 id="reportsPeriodTitle">Periodo di riferimento</h3>
+        <p>Seleziona il periodo da confermare prima della generazione.</p>
+      </div>
+    </div>
+    <div class="reports-period-controls">
+      <label class="reports-period-select">
+        <span>Periodo</span>
+        <select id="reportsPeriodSelect" class="form-select" aria-label="Periodo report">
+          <option value="today">Oggi</option>
+          <option value="yesterday">Ieri</option>
+          <option value="7days">Ultimi 7 giorni</option>
+          <option value="month" selected>Questo mese</option>
+          <option value="custom">Personalizzato</option>
+        </select>
+      </label>
+      <div class="reports-custom-dates" id="reportsCustomDates">
+        <span class="reports-custom-label">Oppure intervallo personalizzato</span>
+        <label><span>Dal</span><input type="date" class="form-control" id="reportsDateFrom"></label>
+        <span aria-hidden="true">—</span>
+        <label><span>Al</span><input type="date" class="form-control" id="reportsDateTo"></label>
+      </div>
+    </div>
+    <div class="reports-period-summary">
+      <i class="bi bi-info-circle" aria-hidden="true"></i>
+      <span>Periodo selezionato: <strong id="reportsSelectedPeriod">Oggi</strong></span>
+      <span class="reports-period-error" id="reportsPeriodError" role="alert" hidden></span>
+    </div>
+  </div>
+
+  <div class="reports-grid">
+    <article class="report-card">
+      <div class="report-card-top">
+        <span class="report-card-icon is-sales"><i class="bi bi-receipt" aria-hidden="true"></i></span>
+        <span class="report-card-formats"><span>CSV</span><span>PDF</span></span>
+      </div>
+      <div class="report-card-copy">
+        <h3>Vendite giornaliere</h3>
+        <p>Elenco degli scontrini, incassi, pagamenti e stati della giornata corrente.</p>
+      </div>
+      <div class="report-card-update"><i class="bi bi-clock" aria-hidden="true"></i><span>Ultimo aggiornamento: al momento dell’export</span></div>
+      <div class="report-card-scope"><strong>Ambito file:</strong> giornata corrente</div>
+      <div class="report-card-actions">
+        <a class="btn report-export-action" href="{{ url_for('report.export_csv', nome_report='vendite_giornaliere') }}" data-report-title="Vendite giornaliere" data-report-format="CSV" data-report-scope="La generazione esistente include la giornata corrente."><i class="bi bi-filetype-csv" aria-hidden="true"></i> CSV</a>
+        <a class="btn report-export-action is-pdf" href="{{ url_for('report.export_pdf') }}" data-report-title="Vendite giornaliere" data-report-format="PDF" data-report-scope="La generazione esistente include la giornata corrente."><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> PDF</a>
+      </div>
+    </article>
+
+    <article class="report-card">
+      <div class="report-card-top">
+        <span class="report-card-icon is-ranking"><i class="bi bi-trophy" aria-hidden="true"></i></span>
+        <span class="report-card-formats"><span>CSV</span></span>
+      </div>
+      <div class="report-card-copy">
+        <h3>Prodotti più venduti</h3>
+        <p>Classifica per quantità e valore dei prodotti presenti nelle vendite completate.</p>
+      </div>
+      <div class="report-card-update"><i class="bi bi-clock" aria-hidden="true"></i><span>Ultimo aggiornamento: al momento dell’export</span></div>
+      <div class="report-card-scope"><strong>Ambito file:</strong> storico disponibile</div>
+      <div class="report-card-actions">
+        <a class="btn report-export-action" href="{{ url_for('report.export_csv', nome_report='prodotti_piu_venduti') }}" data-report-title="Prodotti più venduti" data-report-format="CSV" data-report-scope="La generazione esistente usa lo storico disponibile delle vendite completate."><i class="bi bi-filetype-csv" aria-hidden="true"></i> CSV</a>
+      </div>
+    </article>
+
+    <article class="report-card">
+      <div class="report-card-top">
+        <span class="report-card-icon is-inventory"><i class="bi bi-boxes" aria-hidden="true"></i></span>
+        <span class="report-card-formats"><span>CSV</span></span>
+      </div>
+      <div class="report-card-copy">
+        <h3>Magazzino attuale</h3>
+        <p>Giacenze, soglie minime, categorie, marche e stato corrente dei prodotti.</p>
+      </div>
+      <div class="report-card-update"><i class="bi bi-clock" aria-hidden="true"></i><span>Ultimo aggiornamento: al momento dell’export</span></div>
+      <div class="report-card-scope"><strong>Ambito file:</strong> situazione attuale</div>
+      <div class="report-card-actions">
+        <a class="btn report-export-action" href="{{ url_for('report.export_csv', nome_report='magazzino_attuale') }}" data-report-title="Magazzino attuale" data-report-format="CSV" data-report-scope="Il file è un’istantanea delle giacenze al momento della generazione."><i class="bi bi-filetype-csv" aria-hidden="true"></i> CSV</a>
+      </div>
+    </article>
+
+    <article class="report-card">
+      <div class="report-card-top">
+        <span class="report-card-icon is-movements"><i class="bi bi-arrow-left-right" aria-hidden="true"></i></span>
+        <span class="report-card-formats"><span>CSV</span></span>
+      </div>
+      <div class="report-card-copy">
+        <h3>Movimenti magazzino</h3>
+        <p>Registro di carichi, scarichi, rettifiche, motivazioni e riferimenti operativi.</p>
+      </div>
+      <div class="report-card-update"><i class="bi bi-clock" aria-hidden="true"></i><span>Ultimo aggiornamento: al momento dell’export</span></div>
+      <div class="report-card-scope"><strong>Ambito file:</strong> storico disponibile</div>
+      <div class="report-card-actions">
+        <a class="btn report-export-action" href="{{ url_for('report.export_csv', nome_report='movimenti_magazzino') }}" data-report-title="Movimenti magazzino" data-report-format="CSV" data-report-scope="La generazione esistente include lo storico disponibile dei movimenti."><i class="bi bi-filetype-csv" aria-hidden="true"></i> CSV</a>
+      </div>
+    </article>
+
+    <article class="report-card">
+      <div class="report-card-top">
+        <span class="report-card-icon is-alert"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+        <span class="report-card-formats"><span>CSV</span></span>
+      </div>
+      <div class="report-card-copy">
+        <h3>Prodotti sotto scorta</h3>
+        <p>Prodotti attivi con disponibilità inferiore o uguale alla soglia minima.</p>
+      </div>
+      <div class="report-card-update"><i class="bi bi-clock" aria-hidden="true"></i><span>Ultimo aggiornamento: al momento dell’export</span></div>
+      <div class="report-card-scope"><strong>Ambito file:</strong> situazione attuale</div>
+      <div class="report-card-actions">
+        <a class="btn report-export-action" href="{{ url_for('report.export_csv', nome_report='sotto_scorta') }}" data-report-title="Prodotti sotto scorta" data-report-format="CSV" data-report-scope="Il file fotografa i prodotti sotto soglia al momento della generazione."><i class="bi bi-filetype-csv" aria-hidden="true"></i> CSV</a>
+      </div>
+    </article>
+
+    <article class="report-card is-unavailable">
+      <div class="report-card-top">
+        <span class="report-card-icon is-value"><i class="bi bi-calculator" aria-hidden="true"></i></span>
+        <span class="report-card-formats is-muted"><span>Non disponibile</span></span>
+      </div>
+      <div class="report-card-copy">
+        <h3>Valorizzazione inventario</h3>
+        <p>Valore economico delle giacenze correnti calcolato ai prezzi di acquisto e vendita.</p>
+      </div>
+      <div class="report-card-update"><i class="bi bi-clock" aria-hidden="true"></i><span>Ultimo aggiornamento: export non configurato</span></div>
+      <div class="report-card-scope"><strong>Ambito previsto:</strong> situazione attuale</div>
+      <div class="report-card-actions">
+        <button class="btn report-unavailable-button" type="button" disabled><i class="bi bi-lock" aria-hidden="true"></i> Nessun formato disponibile</button>
+      </div>
+    </article>
+  </div>
 </section>
 
-<div class="row g-3">
-  <div class="col-md-6">
-    <div class="panel-card">
-      <h5>Vendite giornaliere</h5>
-      <div class="d-grid gap-2">
-        <a class="btn btn-coffee" href="{{ url_for('report.export_csv', nome_report='vendite_giornaliere') }}">Export CSV</a>
-        <a class="btn btn-outline-light" href="{{ url_for('report.export_pdf') }}">Export PDF</a>
+<div class="modal fade reports-confirm-modal" id="reportConfirmModal" tabindex="-1" aria-labelledby="reportConfirmTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div><p class="reports-eyebrow">Conferma esportazione</p><h2 class="modal-title" id="reportConfirmTitle">Genera report</h2></div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div class="reports-confirm-file"><span id="reportConfirmIcon"><i class="bi bi-file-earmark-arrow-down" aria-hidden="true"></i></span><div><strong id="reportConfirmName"></strong><small id="reportConfirmFormat"></small></div></div>
+        <dl class="reports-confirm-details">
+          <div><dt>Periodo selezionato</dt><dd id="reportConfirmPeriod"></dd></div>
+          <div><dt>Ambito effettivo del file</dt><dd id="reportConfirmScope"></dd></div>
+        </dl>
+        <div class="reports-confirm-notice"><i class="bi bi-info-circle" aria-hidden="true"></i><span>Gli endpoint e le modalità di generazione restano invariati.</span></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn reports-cancel-button" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn reports-generate-button" id="reportConfirmGenerate"><i class="bi bi-download" aria-hidden="true"></i> Genera file</button>
       </div>
     </div>
   </div>
-  <div class="col-md-6">
-    <div class="panel-card">
-      <h5>Magazzino attuale</h5>
-      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='magazzino_attuale') }}">Export CSV</a>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="panel-card">
-      <h5>Movimenti magazzino</h5>
-      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='movimenti_magazzino') }}">Export CSV</a>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="panel-card">
-      <h5>Prodotti sotto scorta</h5>
-      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='sotto_scorta') }}">Export CSV</a>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="panel-card">
-      <h5>Prodotti più venduti</h5>
-      <a class="btn btn-coffee w-100" href="{{ url_for('report.export_csv', nome_report='prodotti_piu_venduti') }}">Export CSV</a>
-    </div>
-  </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const periodSelect = document.getElementById("reportsPeriodSelect");
+    const customDates = document.getElementById("reportsCustomDates");
+    const dateFrom = document.getElementById("reportsDateFrom");
+    const dateTo = document.getElementById("reportsDateTo");
+    const periodSummary = document.getElementById("reportsSelectedPeriod");
+    const periodError = document.getElementById("reportsPeriodError");
+    const exportLinks = Array.from(document.querySelectorAll(".report-export-action"));
+    const confirmModalElement = document.getElementById("reportConfirmModal");
+    const confirmModal = bootstrap.Modal.getOrCreateInstance(confirmModalElement);
+    const confirmName = document.getElementById("reportConfirmName");
+    const confirmFormat = document.getElementById("reportConfirmFormat");
+    const confirmPeriod = document.getElementById("reportConfirmPeriod");
+    const confirmScope = document.getElementById("reportConfirmScope");
+    const generateButton = document.getElementById("reportConfirmGenerate");
+    let activePeriod = "month";
+    let pendingUrl = "";
+
+    const dateFormatter = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short", year: "numeric" });
+    const updateFormatter = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    const toLocalDate = value => value ? new Date(`${value}T00:00:00`) : null;
+    const toInputDate = date => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    const selectedBounds = () => {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (activePeriod === "today") return [today, today];
+      if (activePeriod === "yesterday") {
+        const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+        return [yesterday, yesterday];
+      }
+      if (activePeriod === "7days") return [new Date(today.getFullYear(), today.getMonth(), today.getDate() - 6), today];
+      if (activePeriod === "month") return [new Date(today.getFullYear(), today.getMonth(), 1), today];
+      return [toLocalDate(dateFrom.value), toLocalDate(dateTo.value)];
+    };
+
+    const periodLabel = () => {
+      const [start, end] = selectedBounds();
+      if (!start || !end) return "Completa l’intervallo personalizzato";
+      if (start.getTime() === end.getTime()) return dateFormatter.format(start);
+      return `${dateFormatter.format(start)} – ${dateFormatter.format(end)}`;
+    };
+
+    const validatePeriod = () => {
+      const [start, end] = selectedBounds();
+      let message = "";
+      if (!start || !end) message = "Seleziona entrambe le date del periodo personalizzato.";
+      else if (start > end) message = "La data iniziale non può essere successiva alla data finale.";
+      periodError.textContent = message;
+      periodError.hidden = !message;
+      periodSummary.textContent = periodLabel();
+      return !message;
+    };
+
+    const setPeriod = period => {
+      activePeriod = period;
+      periodSelect.value = period;
+      customDates.classList.toggle("is-custom", period === "custom");
+      if (period !== "custom") {
+        const [start, end] = selectedBounds();
+        dateFrom.value = toInputDate(start);
+        dateTo.value = toInputDate(end);
+      }
+      validatePeriod();
+    };
+
+    periodSelect.addEventListener("change", () => setPeriod(periodSelect.value));
+    [dateFrom, dateTo].forEach(control => control.addEventListener("change", () => {
+      activePeriod = "custom";
+      periodSelect.value = "custom";
+      customDates.classList.add("is-custom");
+      validatePeriod();
+    }));
+
+    exportLinks.forEach(link => link.addEventListener("click", event => {
+      event.preventDefault();
+      if (!validatePeriod()) return;
+      const [start, end] = selectedBounds();
+      const target = new URL(link.href, window.location.origin);
+      target.searchParams.set("data_da", toInputDate(start));
+      target.searchParams.set("data_a", toInputDate(end));
+      pendingUrl = target.toString();
+      confirmName.textContent = link.dataset.reportTitle;
+      confirmFormat.textContent = `Formato ${link.dataset.reportFormat}`;
+      confirmPeriod.textContent = periodLabel();
+      confirmScope.textContent = link.dataset.reportScope;
+      confirmModal.show();
+    }));
+
+    generateButton.addEventListener("click", () => {
+      if (!pendingUrl) return;
+      confirmModal.hide();
+      window.location.assign(pendingUrl);
+      pendingUrl = "";
+    });
+
+    document.querySelectorAll(".report-card:not(.is-unavailable) .report-card-update span").forEach(label => {
+      label.textContent = `Ultimo aggiornamento: ${updateFormatter.format(new Date())}`;
+    });
+
+    setPeriod("month");
+  })();
+</script>
 {% endblock %}
