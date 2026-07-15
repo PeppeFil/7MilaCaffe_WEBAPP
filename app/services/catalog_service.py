@@ -3,7 +3,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from app.extensions import db
-from app.models import Brand, Category, Compatibility, Product, StoreLocation, Supplier, User
+from app.models import Brand, Category, Compatibility, Product, StoreLocation, Supplier, User, VatRate
 from app.services.inventory_service import registra_movimento
 
 
@@ -161,15 +161,15 @@ CATALOGO_REALE = [
     _product("8055176432751", "Don Carlo Borbone 100% Arabica Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "50 capsule", "7.41", 5, IMG_DON_CARLO),
     _product("8034028333880", "Caffe Borbone Ginseng", "Caffe Borbone", "Caffe Borbone SRL", "Capsule solubili", "Sistema Borbone", "4 x 18 capsule", "13.57", 3, IMG_CAPSULE),
     # Dical - fattura 22/06/2026. I costi includono sconti e omaggi ripartiti sulla giacenza ricevuta.
-    _product("032415800016", "Passione Mito Classica", "Passione Mito", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "10.58", 148, IMG_MODO_MIO),
-    _product("032415800017", "Passione Mito Oro", "Passione Mito", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "11.02", 33, IMG_MODO_MIO),
-    _product("032415800018", "Passione Mito Dek", "Passione Mito", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "12.34", 30, IMG_MODO_MIO),
-    _product("032416202882", "Passione Dolcissima Classica", "Passione Mito", "Dical SRL", "Capsule", "Dolce Gusto", "96 capsule", "13.52", 33, IMG_DOLCE_GUSTO),
-    _product("032415900030", "Passione Espresso Classica", "Passione Mito", "Dical SRL", "Capsule", "Nespresso", "100 capsule", "11.52", 66, IMG_CAPSULE),
-    _product("032415900032", "Passione Espresso Dek", "Passione Mito", "Dical SRL", "Capsule", "Nespresso", "100 capsule", "12.34", 10, IMG_CAPSULE),
-    _product("032315200058", "Cialde Lollo Oro", "Caffe Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "15.26", 22, IMG_CIALDE),
-    _product("032315200057", "Cialde Lollo Classico", "Caffe Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "14.28", 33, IMG_CIALDE),
-    _product("032315200059", "Cialde Lollo Dek", "Caffe Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "16.68", 20, IMG_CIALDE),
+    _product("032415800016", "Passione Mito Classica", "Lollo", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "10.58", 148, IMG_MODO_MIO),
+    _product("032415800017", "Passione Mito Oro", "Lollo", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "11.02", 33, IMG_MODO_MIO),
+    _product("032415800018", "Passione Mito Dek", "Lollo", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "12.34", 30, IMG_MODO_MIO),
+    _product("032416202882", "Passione Dolcissima Classica", "Lollo", "Dical SRL", "Capsule", "Dolce Gusto", "96 capsule", "13.52", 33, IMG_DOLCE_GUSTO),
+    _product("032415900030", "Passione Espresso Classica", "Lollo", "Dical SRL", "Capsule", "Nespresso", "100 capsule", "11.52", 66, IMG_CAPSULE),
+    _product("032415900032", "Passione Espresso Dek", "Lollo", "Dical SRL", "Capsule", "Nespresso", "100 capsule", "12.34", 10, IMG_CAPSULE),
+    _product("032315200058", "Cialde Lollo Oro", "Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "15.26", 22, IMG_CIALDE),
+    _product("032315200057", "Cialde Lollo Classico", "Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "14.28", 33, IMG_CIALDE),
+    _product("032315200059", "Cialde Lollo Dek", "Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "16.68", 20, IMG_CIALDE),
     _product("042720306208", "Chococup Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
     _product("042720306207", "Polvere di Stelle Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
     _product("042720306206", "Coccoloso Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
@@ -180,7 +180,7 @@ CATALOGO_REALE = [
     _product("042720306213", "Lollorzo Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.29", 16, IMG_DOLCE_GUSTO),
     _product("042720306214", "LolloCappuccino Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
     _product("042720306215", "LolloGinseng Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 24, IMG_DOLCE_GUSTO),
-    _product("032423401923", "Passionesse Lollo Nera", "Caffe Lollo", "Dical SRL", "Capsule", "Esse Caffe", "100 capsule", "10.43", 10, IMG_CAPSULE),
+    _product("032423401923", "Passionesse Lollo Nera", "Lollo", "Dical SRL", "Capsule", "Esse Caffe", "100 capsule", "10.43", 10, IMG_CAPSULE),
     # Nutis / Caffe Barbaro - fattura 10/06/2026
     _product("8029804003859", "Caffe Barbaro DG Blu", "Caffe Barbaro", "Nutis SRL", "Capsule", "Dolce Gusto", "100 capsule", "15.61", 70, IMG_DOLCE_GUSTO),
     _product("8029804016989", "Caffe Barbaro DG Celeste Dek", "Caffe Barbaro", "Nutis SRL", "Capsule", "Dolce Gusto", "90 capsule", "15.38", 20, IMG_DOLCE_GUSTO),
@@ -203,6 +203,12 @@ def sync_catalogo_reale() -> tuple[int, int]:
     marche = _ensure_by_name(Brand, {row["brand"] for row in CATALOGO_REALE})
     compatibilita = _ensure_by_name(Compatibility, {row["compatibility"] for row in CATALOGO_REALE})
     fornitori = _ensure_by_name(Supplier, {row["supplier"] for row in CATALOGO_REALE})
+    aliquote_iva = {
+        int(rate.aliquota): rate
+        for rate in VatRate.query.filter(VatRate.aliquota.in_([10, 22]), VatRate.attiva.is_(True)).all()
+    }
+    if 10 not in aliquote_iva or 22 not in aliquote_iva:
+        raise RuntimeError("Aliquote IVA 10% e 22% non configurate.")
     operatore = User.query.filter_by(attivo=True).order_by(User.id.asc()).first()
     punto_vendita_iniziale = StoreLocation.query.filter_by(codice="via-pepoli", attivo=True).first()
 
@@ -215,6 +221,8 @@ def sync_catalogo_reale() -> tuple[int, int]:
             # importate in precedenza con foto o descrizioni troppo generiche.
             esistente.nome = row["nome"]
             esistente.immagine_url = row["image"]
+            esistente.marca_id = marche[row["brand"]].id
+            esistente.vat_rate_id = aliquote_iva[10 if row["category"] == "Capsule solubili" else 22].id
             presenti += 1
             continue
 
@@ -228,6 +236,7 @@ def sync_catalogo_reale() -> tuple[int, int]:
             nome=row["nome"],
             categoria_id=categorie[row["category"]].id,
             marca_id=marche[row["brand"]].id,
+            vat_rate_id=aliquote_iva[10 if row["category"] == "Capsule solubili" else 22].id,
             compatibilita_id=compatibilita[row["compatibility"]].id,
             formato_confezione=row["formato"],
             prezzo_acquisto=row["costo"],

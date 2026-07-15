@@ -47,7 +47,7 @@
           <th>ID</th>
           <th>Data/Ora</th>
           <th>Totale netto</th>
-          <th>IVA %</th>
+          <th>IVA inclusa</th>
           <th>Pagamento</th>
           <th>Cliente</th>
           <th>Operatore</th>
@@ -61,7 +61,7 @@
             <td>#{{ v.id }}</td>
             <td>{{ v.data_ora|roma_datetime }}</td>
             <td><strong>EUR {{ "%.2f"|format(v.totale_netto) }}</strong></td>
-            <td>{{ "%.2f"|format(v.aliquota_iva_snapshot or 0) }}</td>
+            <td>EUR {{ "%.2f"|format(v.totale_iva or 0) }}</td>
             <td>{{ v.metodo_pagamento }}</td>
             <td>{{ v.customer.display_name if v.customer else 'Generico' }}</td>
             <td>{{ v.operatore.username if v.operatore else "-" }}</td>

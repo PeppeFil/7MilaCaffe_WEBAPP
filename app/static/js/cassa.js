@@ -11,12 +11,17 @@ const scontoTipo = document.getElementById("scontoTipo");
 const scontoValore = document.getElementById("scontoValore");
 const metodoPagamento = document.getElementById("metodoPagamento");
 const customerId = document.getElementById("customerId");
-const vatRateId = document.getElementById("vatRateId");
 const noteCliente = document.getElementById("noteCliente");
 const totaleNettoView = document.getElementById("totaleNettoView");
 const checkoutForm = document.getElementById("checkoutForm");
 const checkoutButton = document.getElementById("checkoutButton");
 const cartPayload = document.getElementById("cartPayload");
+const customerCheckoutModalElement = document.getElementById("customerCheckoutModal");
+const customerCheckoutModal = new bootstrap.Modal(customerCheckoutModalElement);
+const customerSearch = document.getElementById("checkoutCustomerSearch");
+const customerChoices = Array.from(document.querySelectorAll(".customer-choice"));
+const customerNoResults = document.getElementById("customerNoResults");
+const checkoutConfirmButton = document.getElementById("checkoutConfirmButton");
 let debounceTimer = null;
 let activeRequest = null;
 
@@ -286,9 +291,44 @@ checkoutForm.addEventListener("submit", (event) => {
     sconto_valore: scontoValore.value || 0,
     metodo_pagamento: metodoPagamento.value,
     customer_id: customerId.value || null,
-    vat_rate_id: vatRateId.value || null,
     note_cliente: noteCliente.value,
   });
+});
+
+checkoutButton.addEventListener("click", () => {
+  if (!Object.keys(state.cart).length) return;
+  customerId.value = "";
+  customerSearch.value = "";
+  customerChoices.forEach((choice) => {
+    choice.hidden = false;
+    choice.classList.toggle("is-selected", choice.dataset.customerId === "");
+  });
+  customerNoResults.hidden = true;
+  customerCheckoutModal.show();
+  customerSearch.focus();
+});
+
+customerChoices.forEach((choice) => {
+  choice.addEventListener("click", () => {
+    customerId.value = choice.dataset.customerId || "";
+    customerChoices.forEach((item) => item.classList.toggle("is-selected", item === choice));
+  });
+});
+
+customerSearch.addEventListener("input", () => {
+  const query = customerSearch.value.trim().toLocaleLowerCase("it");
+  let visible = 0;
+  customerChoices.forEach((choice) => {
+    const matches = !query || choice.dataset.customerSearch.includes(query);
+    choice.hidden = !matches;
+    if (matches) visible += 1;
+  });
+  customerNoResults.hidden = visible !== 0;
+});
+
+checkoutConfirmButton.addEventListener("click", () => {
+  customerCheckoutModal.hide();
+  checkoutForm.requestSubmit();
 });
 
 document.querySelectorAll(".payment-choice").forEach((button) => {

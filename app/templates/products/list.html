@@ -101,6 +101,7 @@
           <td>
             <div class="small">Acq: EUR {{ "%.2f"|format(p.prezzo_acquisto) }}</div>
             <div class="small">Vend: EUR {{ "%.2f"|format(p.prezzo_vendita) }}</div>
+            <div class="small">IVA: {{ "%.2f"|format(p.vat_rate.aliquota if p.vat_rate else 0) }}%</div>
           </td>
           <td>
             <span class="badge {% if p.giacenza_corrente <= 0 %}bg-danger{% elif p.giacenza_corrente <= p.scorta_minima_corrente %}bg-warning text-dark{% else %}bg-success{% endif %}">

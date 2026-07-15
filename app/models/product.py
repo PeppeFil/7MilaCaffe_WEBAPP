@@ -17,6 +17,9 @@ class Product(db.Model):
         db.Integer, db.ForeignKey("categories.id"), nullable=False, index=True
     )
     marca_id = db.Column(db.Integer, db.ForeignKey("brands.id"), nullable=False, index=True)
+    vat_rate_id = db.Column(
+        db.Integer, db.ForeignKey("vat_rates.id"), nullable=False, index=True
+    )
     compatibilita_id = db.Column(
         db.Integer, db.ForeignKey("compatibilities.id"), nullable=True, index=True
     )
@@ -37,6 +40,7 @@ class Product(db.Model):
 
     categoria = db.relationship("Category", back_populates="prodotti", lazy="joined")
     brand = db.relationship("Brand", back_populates="prodotti", lazy="joined")
+    vat_rate = db.relationship("VatRate", back_populates="prodotti", lazy="joined")
     compatibility = db.relationship("Compatibility", back_populates="prodotti", lazy="joined")
     fornitore = db.relationship("Supplier", back_populates="prodotti", lazy="joined")
     righe_vendita = db.relationship("SaleItem", back_populates="prodotto", lazy="select")

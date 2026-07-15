@@ -1,7 +1,7 @@
 import pytest
 
 from app.extensions import db
-from app.models import InventoryMovement, Product, Sale, StoreInventory, StoreLocation, User
+from app.models import Category, InventoryMovement, Product, Sale, StoreInventory, StoreLocation, User, VatRate
 from app.services.sale_service import annulla_vendita, crea_vendita
 
 
@@ -102,3 +102,49 @@ def test_store_inventory_is_separate(app):
         assert vendita.punto_vendita_id == pepoli.id
         assert StoreInventory.query.filter_by(punto_vendita_id=pepoli.id, prodotto_id=prodotto.id).one().quantita_disponibile == 7
         assert StoreInventory.query.filter_by(punto_vendita_id=vespri.id, prodotto_id=prodotto.id).one().quantita_disponibile == 4
+
+
+def test_sale_calculates_vat_per_product_from_vat_included_prices(app):
+    with app.app_context():
+        operatore = User.query.filter_by(username="operatore").first()
+        prodotto_22 = Product.query.filter_by(sku_barcode="TEST-001").first()
+        prodotto_22.prezzo_vendita = 122
+        iva_10 = VatRate(nome="IVA 10%", aliquota=10, attiva=True)
+        categoria_solubili = Category(nome="Solubili")
+        db.session.add_all([iva_10, categoria_solubili])
+        db.session.flush()
+        prodotto_10 = Product(
+            nome="Solubile Test",
+            categoria_id=categoria_solubili.id,
+            marca_id=prodotto_22.marca_id,
+            vat_rate_id=iva_10.id,
+            prezzo_acquisto=50,
+            prezzo_vendita=110,
+            quantita_disponibile=5,
+            quantita_minima_alert=1,
+            sku_barcode="TEST-IVA-10",
+            attivo=True,
+        )
+        db.session.add(prodotto_10)
+        db.session.commit()
+
+        vendita = crea_vendita(
+            operatore_id=operatore.id,
+            items=[
+                {"prodotto_id": prodotto_22.id, "quantita": 1},
+                {"prodotto_id": prodotto_10.id, "quantita": 1},
+            ],
+            sconto_tipo="nessuno",
+            sconto_valore=0,
+            metodo_pagamento="contanti",
+        )
+
+        assert vendita.totale_netto == 232
+        assert vendita.totale_iva == 32
+        assert vendita.vat_rate_id is None
+        assert vendita.aliquota_iva_snapshot == 0
+        righe = {r.prodotto_id: r for r in vendita.righe}
+        assert righe[prodotto_22.id].aliquota_iva_snapshot == 22
+        assert righe[prodotto_22.id].totale_iva == 22
+        assert righe[prodotto_10.id].aliquota_iva_snapshot == 10
+        assert righe[prodotto_10.id].totale_iva == 10

@@ -2,7 +2,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 
-from sqlalchemy import case, func
+from sqlalchemy import func
 
 from app.models import Category, Product, Sale, SaleItem, StoreInventory
 from app.utils.timezones import rome_day_bounds_utc
@@ -151,34 +151,40 @@ def analisi_periodo(
         )
         .group_by(Product.nome)
         .order_by(func.sum(SaleItem.quantita).desc())
-        .limit(10)
     )
     if punto_vendita_id:
         top_prodotti_query = top_prodotti_query.filter(Sale.punto_vendita_id == punto_vendita_id)
-    top_prodotti = top_prodotti_query.all()
+    top_prodotti = top_prodotti_query.limit(10).all()
 
-    low_prodotti_query = (
-        Product.query.outerjoin(SaleItem, Product.id == SaleItem.prodotto_id)
-        .outerjoin(
-            Sale,
-            (Sale.id == SaleItem.vendita_id)
-            & (Sale.data_ora >= data_inizio)
-            & (Sale.data_ora < data_fine)
-            & (Sale.stato == "completata"),
+    vendite_prodotto_query = (
+        SaleItem.query.join(Sale, Sale.id == SaleItem.vendita_id)
+        .filter(
+            Sale.data_ora >= data_inizio,
+            Sale.data_ora < data_fine,
+            Sale.stato == "completata",
         )
         .with_entities(
-            Product.nome,
-            func.coalesce(func.sum(case((Sale.id.isnot(None), SaleItem.quantita), else_=0)), 0).label(
-                "pezzi"
-            ),
+            SaleItem.prodotto_id.label("prodotto_id"),
+            func.sum(SaleItem.quantita).label("pezzi"),
         )
-        .group_by(Product.nome)
-        .order_by("pezzi")
-        .limit(10)
+        .group_by(SaleItem.prodotto_id)
     )
     if punto_vendita_id:
-        low_prodotti_query = low_prodotti_query.filter(Sale.punto_vendita_id == punto_vendita_id)
-    low_prodotti = low_prodotti_query.all()
+        vendite_prodotto_query = vendite_prodotto_query.filter(
+            Sale.punto_vendita_id == punto_vendita_id
+        )
+    vendite_prodotto = vendite_prodotto_query.subquery()
+    pezzi_venduti = func.coalesce(vendite_prodotto.c.pezzi, 0)
+    low_prodotti = (
+        Product.query.outerjoin(
+            vendite_prodotto, vendite_prodotto.c.prodotto_id == Product.id
+        )
+        .filter(Product.attivo.is_(True))
+        .with_entities(Product.nome, pezzi_venduti.label("pezzi"))
+        .order_by(pezzi_venduti.asc(), Product.nome.asc())
+        .limit(10)
+        .all()
+    )
 
     pagamenti = (
         vendite_range.with_entities(

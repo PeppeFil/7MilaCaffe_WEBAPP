@@ -2,7 +2,7 @@ from flask import Blueprint, Response, flash, redirect, render_template, request
 from flask_login import current_user, login_required
 
 from app.extensions import db
-from app.models import Brand, Category, Compatibility, Product, Supplier
+from app.models import Brand, Category, Compatibility, Product, Supplier, VatRate
 from app.models.constants import RUOLO_ADMIN
 from app.services.audit_service import registra_attivita
 from app.services.product_service import (
@@ -32,6 +32,7 @@ def index():
     marche = Brand.query.order_by(Brand.nome.asc()).all()
     compatibilita = Compatibility.query.order_by(Compatibility.nome.asc()).all()
     fornitori = Supplier.query.order_by(Supplier.nome.asc()).all()
+    aliquote_iva = VatRate.query.filter_by(attiva=True).order_by(VatRate.aliquota.asc()).all()
     return render_template(
         "products/list.html",
         prodotti=prodotti,
@@ -39,6 +40,7 @@ def index():
         marche=marche,
         compatibilita=compatibilita,
         fornitori=fornitori,
+        aliquote_iva=aliquote_iva,
         filtri=filtri,
     )
 
@@ -50,6 +52,7 @@ def nuovo():
     marche = Brand.query.order_by(Brand.nome.asc()).all()
     compatibilita = Compatibility.query.order_by(Compatibility.nome.asc()).all()
     fornitori = Supplier.query.order_by(Supplier.nome.asc()).all()
+    aliquote_iva = VatRate.query.filter_by(attiva=True).order_by(VatRate.aliquota.asc()).all()
 
     if request.method == "POST":
         try:
@@ -75,6 +78,7 @@ def nuovo():
         marche=marche,
         compatibilita=compatibilita,
         fornitori=fornitori,
+        aliquote_iva=aliquote_iva,
         prodotto=None,
     )
 
@@ -88,6 +92,7 @@ def modifica(product_id):
     marche = Brand.query.order_by(Brand.nome.asc()).all()
     compatibilita = Compatibility.query.order_by(Compatibility.nome.asc()).all()
     fornitori = Supplier.query.order_by(Supplier.nome.asc()).all()
+    aliquote_iva = VatRate.query.filter_by(attiva=True).order_by(VatRate.aliquota.asc()).all()
 
     if request.method == "POST":
         try:
@@ -113,6 +118,7 @@ def modifica(product_id):
         marche=marche,
         compatibilita=compatibilita,
         fornitori=fornitori,
+        aliquote_iva=aliquote_iva,
         prodotto=prodotto,
     )
 

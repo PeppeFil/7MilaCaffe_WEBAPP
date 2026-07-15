@@ -63,6 +63,7 @@
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="cart_payload" id="cartPayload">
         <input type="hidden" id="metodoPagamento" value="contanti">
+        <input type="hidden" id="customerId" value="">
 
         <div class="cart-total">
           <span>Totale <small>IVA inclusa</small></span>
@@ -94,35 +95,64 @@
               <input type="number" min="0" step="0.01" id="scontoValore" class="form-control" value="0">
             </div>
             <div class="col-12">
-              <label class="form-label" for="customerId">Cliente</label>
-              <select id="customerId" class="form-select">
-                <option value="">Cliente generico</option>
-                {% for cliente in clienti %}
-                  <option value="{{ cliente.id }}">{{ cliente.display_name }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-12">
-              <label class="form-label" for="vatRateId">Aliquota IVA</label>
-              <select id="vatRateId" class="form-select">
-                <option value="">Nessuna</option>
-                {% for iva in aliquote_iva %}
-                  <option value="{{ iva.id }}" {% if iva.predefinita %}selected{% endif %}>{{ iva.nome }} ({{ "%.2f"|format(iva.aliquota) }}%)</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-12">
               <label class="form-label" for="noteCliente">Note</label>
               <input type="text" id="noteCliente" class="form-control" placeholder="Facoltative">
             </div>
           </div>
         </details>
 
-        <button type="submit" id="checkoutButton" class="btn btn-coffee btn-lg w-100">
+        <button type="button" id="checkoutButton" class="btn btn-coffee btn-lg w-100">
           Completa vendita
         </button>
       </form>
     </aside>
+  </div>
+</div>
+
+<div class="modal fade customer-checkout-modal" id="customerCheckoutModal" tabindex="-1" aria-labelledby="customerCheckoutTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h2 class="modal-title fs-4" id="customerCheckoutTitle">Seleziona il cliente</h2>
+          <p class="mb-0">La vendita verrà associata al cliente scelto.</p>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <label class="visually-hidden" for="checkoutCustomerSearch">Cerca cliente</label>
+        <div class="input-group customer-modal-search">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="checkoutCustomerSearch" type="search" class="form-control" placeholder="Cerca per nome, telefono, email, codice fiscale o Partita IVA" autocomplete="off">
+        </div>
+        <div class="customer-choice-list" id="checkoutCustomerList">
+          <button type="button" class="customer-choice is-selected" data-customer-id="" data-customer-search="cliente generico">
+            <span class="customer-choice-icon"><i class="bi bi-person"></i></span>
+            <span><strong>Cliente generico</strong><small>Nessuna anagrafica associata</small></span>
+            <i class="bi bi-check-circle-fill customer-choice-check"></i>
+          </button>
+          {% for cliente in clienti %}
+            <button type="button" class="customer-choice" data-customer-id="{{ cliente.id }}" data-customer-search="{{ (cliente.display_name ~ ' ' ~ (cliente.telefono or '') ~ ' ' ~ (cliente.email or '') ~ ' ' ~ (cliente.codice_fiscale or '') ~ ' ' ~ (cliente.partita_iva or ''))|lower }}">
+              <span class="customer-choice-icon"><i class="bi bi-person-vcard"></i></span>
+              <span>
+                <strong>{{ cliente.display_name }}</strong>
+                <small>
+                  {{ cliente.telefono or cliente.email or 'Nessun contatto' }}
+                  {% if cliente.partita_iva %} · P.IVA {{ cliente.partita_iva }}{% elif cliente.codice_fiscale %} · CF {{ cliente.codice_fiscale }}{% endif %}
+                </small>
+              </span>
+              <i class="bi bi-check-circle-fill customer-choice-check"></i>
+            </button>
+          {% endfor %}
+        </div>
+        <p id="customerNoResults" class="customer-no-results" hidden>Nessun cliente corrisponde alla ricerca.</p>
+      </div>
+      <div class="modal-footer">
+        <a href="{{ url_for('customers.nuovo') }}" class="btn btn-outline-light me-auto"><i class="bi bi-person-plus"></i> Nuovo cliente</a>
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" id="checkoutConfirmButton" class="btn btn-coffee"><i class="bi bi-check2-circle"></i> Conferma vendita</button>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

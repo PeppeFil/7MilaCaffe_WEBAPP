@@ -60,6 +60,71 @@ def test_analysis_page_renders_with_postgres_safe_aggregations(client):
     assert b"Analisi Vendite" in response.data
 
 
+def test_analysis_page_renders_when_a_store_filter_is_active(app, client):
+    store = StoreLocation(
+        codice="analysis-store",
+        nome="Sede Analisi",
+        indirizzo="Via Analisi 1",
+        cap="91100",
+        comune="Trapani",
+        provincia="TP",
+        ragione_sociale="Sede Analisi SRL",
+        partita_iva="00000000009",
+    )
+    db.session.add(store)
+    db.session.flush()
+    admin = User.query.filter_by(username="admin").first()
+    admin.punto_vendita_predefinito_id = store.id
+    db.session.commit()
+
+    login(client, "admin", "admin123")
+    response = client.get("/analisi?periodo=ultimi_7")
+
+    assert response.status_code == 200
+    assert b"Analisi Vendite" in response.data
+
+
+def test_global_store_selector_switches_the_viewed_location(app, client):
+    first = StoreLocation(
+        codice="selector-one",
+        nome="Sede Uno",
+        indirizzo="Via Uno 1",
+        cap="91100",
+        comune="Trapani",
+        provincia="TP",
+        ragione_sociale="Sede Uno SRL",
+        partita_iva="00000000007",
+    )
+    second = StoreLocation(
+        codice="selector-two",
+        nome="Sede Due",
+        indirizzo="Via Due 2",
+        cap="91019",
+        comune="Valderice",
+        provincia="TP",
+        ragione_sociale="Sede Due SRL",
+        partita_iva="00000000008",
+    )
+    db.session.add_all([first, second])
+    db.session.flush()
+    operatore = User.query.filter_by(username="operatore").first()
+    operatore.punto_vendita_predefinito_id = first.id
+    db.session.commit()
+    login(client, "operatore", "operator123")
+
+    response = client.post(
+        "/impostazioni/punto-vendita",
+        data={
+            "csrf_token": get_csrf_token(client, "/cassa"),
+            "punto_vendita_id": second.id,
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    assert b"Sede Due" in response.data
+
+
 def test_cash_page_uses_simple_product_tiles(client):
     login(client, "operatore", "operator123")
 
@@ -71,6 +136,9 @@ def test_cash_page_uses_simple_product_tiles(client):
     assert b'id="categoriaFilter"' in response.data
     assert b'Cerca un prodotto o leggi il barcode' in response.data
     assert b"Completa vendita" in response.data
+    assert b'id="customerCheckoutModal"' in response.data
+    assert b"Cliente generico" in response.data
+    assert b'id="vatRateId"' not in response.data
 
 
 def test_cash_page_does_not_eager_load_unrelated_collections(app, client):

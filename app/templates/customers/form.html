@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{% if cliente %}Modifica{% else %}Nuovo{% endif %} cliente | 7MilaCaffe{% endblock %}
+{% block content %}
+<section class="page-header">
+  <h2>{% if cliente %}Modifica cliente{% else %}Nuovo cliente{% endif %}</h2>
+  <p>Inserisci i riferimenti anagrafici, fiscali e di contatto.</p>
+</section>
+<div class="panel-card">
+  <form method="post" class="row g-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="col-md-4"><label class="form-label">Nome</label><input class="form-control" name="nome" value="{{ cliente.nome if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Cognome</label><input class="form-control" name="cognome" value="{{ cliente.cognome or '' if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Ragione sociale</label><input class="form-control" name="ragione_sociale" value="{{ cliente.ragione_sociale or '' if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Telefono</label><input class="form-control" name="telefono" value="{{ cliente.telefono or '' if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Email</label><input type="email" class="form-control" name="email" value="{{ cliente.email or '' if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Indirizzo</label><input class="form-control" name="indirizzo" value="{{ cliente.indirizzo or '' if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Codice fiscale</label><input class="form-control" name="codice_fiscale" maxlength="20" value="{{ cliente.codice_fiscale or '' if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Partita IVA</label><input class="form-control" name="partita_iva" maxlength="20" value="{{ cliente.partita_iva or '' if cliente else '' }}"></div>
+    <div class="col-md-4"><label class="form-label">Stato</label><select class="form-select" name="attivo"><option value="1" {% if not cliente or cliente.attivo %}selected{% endif %}>Attivo</option><option value="0" {% if cliente and not cliente.attivo %}selected{% endif %}>Eliminato</option></select></div>
+    <div class="col-12"><label class="form-label">Note</label><textarea class="form-control" name="note" rows="3">{{ cliente.note or '' if cliente else '' }}</textarea></div>
+    <div class="col-12 d-flex gap-2"><button class="btn btn-coffee">Salva cliente</button><a class="btn btn-outline-light" href="{{ url_for('customers.index') }}">Annulla</a></div>
+  </form>
+</div>
+{% endblock %}

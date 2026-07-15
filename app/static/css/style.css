@@ -142,7 +142,9 @@ body.coffee-app {
   justify-content: space-between;
   align-items: center;
 }
-.topbar-store { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f3dfcd; font-size: .9rem; }
+.topbar-store-selector { display: flex; min-width: 260px; align-items: center; gap: .45rem; color: #f3dfcd; }
+.topbar-store-selector .form-select { min-width: 220px; border-color: rgba(255,255,255,.2); background-color: rgba(255,255,255,.08); color: #fff; }
+.topbar-store-selector .form-select option { color: #2f1f17; }
 .topbar-actions { display: flex; align-items: center; gap: .65rem; }
 .active-user { padding: .36rem .68rem; border-radius: 999px; background: rgba(255,255,255,.14); font-weight: 600; white-space: nowrap; }
 
@@ -857,6 +859,89 @@ body.coffee-app {
   opacity: 0.48;
 }
 
+.customer-checkout-modal .modal-content {
+  border: 1px solid rgba(217, 166, 111, 0.42);
+  background: #352219;
+  color: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.customer-checkout-modal .modal-header,
+.customer-checkout-modal .modal-footer {
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.customer-checkout-modal .modal-header p {
+  color: #cfbba8;
+}
+
+.customer-modal-search .input-group-text {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #e9c9aa;
+}
+
+.customer-choice-list {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+
+.customer-choice {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  text-align: left;
+}
+
+.customer-choice:hover,
+.customer-choice.is-selected {
+  border-color: #d9a66f;
+  background: rgba(154, 104, 71, 0.32);
+}
+
+.customer-choice-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(217, 166, 111, 0.16);
+  color: #e9c9aa;
+  font-size: 1.15rem;
+}
+
+.customer-choice strong,
+.customer-choice small {
+  display: block;
+}
+
+.customer-choice small {
+  margin-top: 0.18rem;
+  color: #cfbba8;
+}
+
+.customer-choice-check {
+  color: #d9a66f;
+  opacity: 0;
+}
+
+.customer-choice.is-selected .customer-choice-check {
+  opacity: 1;
+}
+
+.customer-no-results {
+  margin: 1rem 0 0;
+  color: #cfbba8;
+  text-align: center;
+}
+
 .login-wrapper {
   min-height: 100vh;
   display: grid;
@@ -1020,7 +1105,8 @@ body.coffee-app {
     max-height: 40vh;
   }
 
-  .topbar-store { display: none; }
+  .topbar-store-selector { min-width: 0; }
+  .topbar-store-selector .form-select { min-width: 150px; max-width: 42vw; }
   .topbar-actions { margin-left: auto; }
 }
 

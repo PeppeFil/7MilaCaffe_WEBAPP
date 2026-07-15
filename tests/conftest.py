@@ -41,6 +41,7 @@ def app():
             nome="Capsule Test",
             categoria_id=categoria.id,
             marca_id=marca.id,
+            vat_rate_id=iva.id,
             compatibilita_id=compatibilita.id,
             formato_confezione="10 pz",
             prezzo_acquisto=0.2,

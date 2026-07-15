@@ -53,12 +53,21 @@ def _init_extensions(app: Flask) -> None:
 
     @app.context_processor
     def inject_security_helpers():
+        from .models import StoreLocation
         from .services.store_service import punto_vendita_corrente
         from .utils.timezones import utc_to_rome
 
+        punti_vendita = []
+        if current_user.is_authenticated:
+            punti_vendita = (
+                StoreLocation.query.filter_by(attivo=True)
+                .order_by(StoreLocation.nome.asc())
+                .all()
+            )
         return {
             "csrf_token": get_csrf_token,
             "punto_vendita_corrente": punto_vendita_corrente() if current_user.is_authenticated else None,
+            "punti_vendita_disponibili": punti_vendita,
             "data_roma": utc_to_rome,
         }
 
@@ -80,6 +89,7 @@ def _register_blueprints(app: Flask) -> None:
     from .controllers.analysis_controller import analysis_bp
     from .controllers.auth_controller import auth_bp
     from .controllers.cash_register_controller import cash_bp
+    from .controllers.customer_controller import customer_bp
     from .controllers.dashboard_controller import dashboard_bp
     from .controllers.inventory_controller import inventory_bp
     from .controllers.product_controller import product_bp
@@ -91,6 +101,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(product_bp)
     app.register_blueprint(cash_bp)
+    app.register_blueprint(customer_bp)
     app.register_blueprint(inventory_bp)
     app.register_blueprint(sales_bp)
     app.register_blueprint(analysis_bp)

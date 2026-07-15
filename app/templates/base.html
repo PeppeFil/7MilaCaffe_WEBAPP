@@ -43,6 +43,9 @@
             <a class="nav-link {% if request.path.startswith('/vendite') %}active{% endif %}" href="{{ url_for('sales.index') }}" title="Vendite">
               <i class="bi bi-receipt nav-icon"></i><span class="nav-text">Vendite</span>
             </a>
+            <a class="nav-link {% if request.path.startswith('/clienti') %}active{% endif %}" href="{{ url_for('customers.index') }}" title="Clienti">
+              <i class="bi bi-people-fill nav-icon"></i><span class="nav-text">Clienti</span>
+            </a>
             <a class="nav-link {% if request.path.startswith('/analisi') %}active{% endif %}" href="{{ url_for('analysis.index') }}" title="Analisi">
               <i class="bi bi-bar-chart-line-fill nav-icon"></i><span class="nav-text">Analisi</span>
             </a>
@@ -62,10 +65,16 @@
         </aside>
         <main class="main-content">
           <header class="topbar">
-            <div class="topbar-store">
-              <i class="bi bi-geo-alt-fill"></i>
-              {{ punto_vendita_corrente.indirizzo_completo if punto_vendita_corrente else 'Punto vendita da selezionare' }}
-            </div>
+            <form method="post" action="{{ url_for('settings.cambia_punto_vendita') }}" class="topbar-store-selector">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <i class="bi bi-geo-alt-fill" aria-hidden="true"></i>
+              <label class="visually-hidden" for="globalStoreSelector">Punto vendita visualizzato</label>
+              <select id="globalStoreSelector" name="punto_vendita_id" class="form-select form-select-sm" onchange="this.form.submit()" title="Cambia il punto vendita visualizzato">
+                {% for punto in punti_vendita_disponibili %}
+                  <option value="{{ punto.id }}" {% if punto_vendita_corrente and punto.id == punto_vendita_corrente.id %}selected{% endif %}>{{ punto.nome }} — {{ punto.comune }}</option>
+                {% endfor %}
+              </select>
+            </form>
             <div class="topbar-actions">
               <span class="active-user"><i class="bi bi-person-circle"></i> {{ current_user.username }}</span>
               <button type="button" id="fullscreenToggle" class="btn btn-outline-light btn-sm" title="Schermo intero" aria-label="Attiva schermo intero">

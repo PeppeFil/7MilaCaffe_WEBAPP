@@ -19,3 +19,4 @@ class VatRate(db.Model):
     )
 
     vendite = db.relationship("Sale", back_populates="vat_rate", lazy="select")
+    prodotti = db.relationship("Product", back_populates="vat_rate", lazy="select")

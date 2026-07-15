@@ -19,10 +19,10 @@
     <div class="meta">Vendita #{{ vendita.id }} - {{ vendita.data_ora|roma_datetime }}</div>
     <div class="meta">Operatore: {{ vendita.operatore.username if vendita.operatore else '-' }}</div>
     <div class="meta">Cliente: {{ vendita.customer.display_name if vendita.customer else 'Generico' }}</div>
-    <div class="meta">Aliquota IVA: {{ "%.2f"|format(vendita.aliquota_iva_snapshot or 0) }}%</div>
+    <div class="meta">IVA inclusa calcolata per prodotto: EUR {{ "%.2f"|format(vendita.totale_iva or 0) }}</div>
     <table>
       <thead>
-        <tr><th>Prodotto</th><th>Qta</th><th>Prezzo</th><th>Totale</th></tr>
+        <tr><th>Prodotto</th><th>Qta</th><th>Prezzo</th><th>IVA</th><th>Totale</th></tr>
       </thead>
       <tbody>
         {% for r in vendita.righe %}
@@ -30,7 +30,8 @@
             <td>{{ r.prodotto.nome if r.prodotto else '-' }}</td>
             <td>{{ r.quantita }}</td>
             <td>EUR {{ "%.2f"|format(r.prezzo_unitario) }}</td>
-            <td>EUR {{ "%.2f"|format(r.subtotale) }}</td>
+            <td>{{ "%.0f"|format(r.aliquota_iva_snapshot) }}%</td>
+            <td>EUR {{ "%.2f"|format(r.totale_netto) }}</td>
           </tr>
         {% endfor %}
       </tbody>

@@ -4,7 +4,7 @@ from flask import Blueprint, flash, jsonify, redirect, render_template, request,
 from flask_login import current_user, login_required
 from sqlalchemy import or_
 
-from app.models import Brand, Category, Compatibility, Customer, Product, Sale, VatRate
+from app.models import Brand, Category, Compatibility, Customer, Product, Sale
 from app.models.constants import METODI_PAGAMENTO
 from app.services.sale_service import crea_vendita
 from app.services.store_service import mappa_giacenze, punto_vendita_corrente
@@ -27,6 +27,7 @@ def _serialize_product(product: Product, quantita_disponibile: int | None = None
         "categoria": product.categoria.nome if product.categoria else "",
         "sku_barcode": product.sku_barcode or "",
         "immagine_url": product.immagine_url or "",
+        "aliquota_iva": float(product.vat_rate.aliquota) if product.vat_rate else 0,
     }
 
 
@@ -42,7 +43,6 @@ def cassa():
         else {}
     )
     clienti = Customer.query.filter_by(attivo=True).order_by(Customer.nome.asc(), Customer.cognome.asc()).all()
-    aliquote_iva = VatRate.query.filter_by(attiva=True).order_by(VatRate.aliquota.asc()).all()
     return render_template(
         "cassa.html",
         categorie=categorie,
@@ -56,7 +56,6 @@ def cassa():
         ],
         metodi_pagamento=METODI_PAGAMENTO,
         clienti=clienti,
-        aliquote_iva=aliquote_iva,
     )
 
 
@@ -128,7 +127,6 @@ def checkout():
             metodo_pagamento=data.get("metodo_pagamento", "contanti"),
             note_cliente=data.get("note_cliente", ""),
             customer_id=data.get("customer_id"),
-            vat_rate_id=data.get("vat_rate_id"),
             punto_vendita_id=(punto_vendita_corrente().id if punto_vendita_corrente() else None),
         )
         flash(f"Vendita #{vendita.id} completata.", "success")

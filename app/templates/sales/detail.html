@@ -30,7 +30,7 @@
 <div class="panel-card mb-3">
   <div class="row g-2">
     <div class="col-md-4"><strong>Cliente:</strong> {{ vendita.customer.display_name if vendita.customer else 'Generico' }}</div>
-    <div class="col-md-4"><strong>Aliquota IVA:</strong> {{ "%.2f"|format(vendita.aliquota_iva_snapshot or 0) }}%</div>
+    <div class="col-md-4"><strong>IVA inclusa:</strong> EUR {{ "%.2f"|format(vendita.totale_iva or 0) }}</div>
     <div class="col-md-4"><strong>Pagamento:</strong> {{ vendita.metodo_pagamento }}</div>
   </div>
 </div>
@@ -44,7 +44,9 @@
           <th>Prodotto</th>
           <th>Quantita</th>
           <th>Prezzo unitario</th>
-          <th>Subtotale</th>
+          <th>Totale</th>
+          <th>Aliquota</th>
+          <th>IVA inclusa</th>
           <th>Costo snapshot</th>
           <th>Margine riga</th>
         </tr>
@@ -55,7 +57,9 @@
             <td>{{ r.prodotto.nome if r.prodotto else '-' }}</td>
             <td>{{ r.quantita }}</td>
             <td>EUR {{ "%.2f"|format(r.prezzo_unitario) }}</td>
-            <td>EUR {{ "%.2f"|format(r.subtotale) }}</td>
+            <td>EUR {{ "%.2f"|format(r.totale_netto) }}</td>
+            <td>{{ "%.2f"|format(r.aliquota_iva_snapshot) }}%</td>
+            <td>EUR {{ "%.2f"|format(r.totale_iva) }}</td>
             <td>EUR {{ "%.2f"|format(r.costo_unitario_snapshot) }}</td>
             <td>EUR {{ "%.2f"|format(r.margine_riga) }}</td>
           </tr>

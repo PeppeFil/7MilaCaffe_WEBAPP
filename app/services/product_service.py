@@ -5,7 +5,7 @@ from decimal import Decimal
 from sqlalchemy import or_
 
 from app.extensions import db
-from app.models import Brand, Compatibility, Product
+from app.models import Brand, Compatibility, Product, VatRate
 from app.utils.parsers import to_decimal, to_int
 
 
@@ -78,6 +78,7 @@ def duplica_prodotto(prodotto: Product) -> Product:
         categoria_id=prodotto.categoria_id,
         marca_id=prodotto.marca_id,
         compatibilita_id=prodotto.compatibilita_id,
+        vat_rate_id=prodotto.vat_rate_id,
         formato_confezione=prodotto.formato_confezione,
         prezzo_acquisto=prodotto.prezzo_acquisto,
         prezzo_vendita=prodotto.prezzo_vendita,
@@ -109,6 +110,8 @@ def esporta_prodotti_csv(prodotti) -> str:
             "formato_confezione",
             "prezzo_acquisto",
             "prezzo_vendita",
+            "vat_rate_id",
+            "aliquota_iva",
             "quantita_disponibile",
             "quantita_minima_alert",
             "sku_barcode",
@@ -130,6 +133,8 @@ def esporta_prodotti_csv(prodotti) -> str:
                 p.formato_confezione or "",
                 p.prezzo_acquisto,
                 p.prezzo_vendita,
+                p.vat_rate_id,
+                p.vat_rate.aliquota if p.vat_rate else "",
                 p.quantita_disponibile,
                 p.quantita_minima_alert,
                 p.sku_barcode or "",
@@ -163,6 +168,9 @@ def importa_prodotti_csv(file_storage) -> tuple[int, int]:
             "formato_confezione": row.get("formato_confezione"),
             "prezzo_acquisto": row.get("prezzo_acquisto"),
             "prezzo_vendita": row.get("prezzo_vendita"),
+            "vat_rate_id": _resolve_vat_rate_id(
+                row.get("vat_rate_id"), row.get("aliquota_iva")
+            ),
             "quantita_disponibile": row.get("quantita_disponibile"),
             "quantita_minima_alert": row.get("quantita_minima_alert"),
             "sku_barcode": sku,
@@ -193,6 +201,7 @@ def _apply_product_data(prodotto: Product, data: dict) -> None:
     prodotto.formato_confezione = (data.get("formato_confezione") or "").strip() or None
     prodotto.prezzo_acquisto = to_decimal(data.get("prezzo_acquisto"), Decimal("0.00"))
     prodotto.prezzo_vendita = to_decimal(data.get("prezzo_vendita"), Decimal("0.00"))
+    prodotto.vat_rate_id = to_int(data.get("vat_rate_id"))
     prodotto.quantita_disponibile = to_int(data.get("quantita_disponibile"))
     prodotto.quantita_minima_alert = to_int(data.get("quantita_minima_alert"))
     prodotto.sku_barcode = (data.get("sku_barcode") or "").strip() or None
@@ -200,6 +209,10 @@ def _apply_product_data(prodotto: Product, data: dict) -> None:
 
     if not prodotto.marca_id:
         raise ValueError("Marca obbligatoria.")
+    if not prodotto.vat_rate_id:
+        raise ValueError("Aliquota IVA obbligatoria.")
+    if not VatRate.query.filter_by(id=prodotto.vat_rate_id, attiva=True).first():
+        raise ValueError("Aliquota IVA non valida o non attiva.")
 
     fornitore_id = to_int(data.get("fornitore_id"), default=0)
     prodotto.fornitore_id = fornitore_id or None
@@ -238,3 +251,15 @@ def _resolve_compatibility_id(raw_id, raw_name) -> int | None:
     db.session.add(compatibility)
     db.session.flush()
     return compatibility.id
+
+
+def _resolve_vat_rate_id(raw_id, raw_rate) -> int:
+    vat_rate_id = to_int(raw_id, default=0)
+    if vat_rate_id:
+        return vat_rate_id
+    aliquota = to_decimal(raw_rate, Decimal("0.00"))
+    vat_rate = VatRate.query.filter_by(aliquota=aliquota, attiva=True).first()
+    if vat_rate:
+        return vat_rate.id
+    default_rate = VatRate.query.filter_by(predefinita=True, attiva=True).first()
+    return default_rate.id if default_rate else 0

@@ -4,13 +4,16 @@ from decimal import Decimal
 from sqlalchemy.orm import joinedload
 
 from app.extensions import db
-from app.models import Customer, Product, Sale, SaleItem, VatRate
+from app.models import Customer, Product, Sale, SaleItem
 from app.services.audit_service import registra_attivita
 from app.services.inventory_service import registra_movimento
 from app.services.store_service import quantita_disponibile
 from app.utils.parsers import to_decimal, to_int
 from app.utils.timezones import utc_now_naive
 from app.utils.timezones import ROME_TIMEZONE
+
+
+MONEY = Decimal("0.01")
 
 
 def crea_vendita(
@@ -21,7 +24,6 @@ def crea_vendita(
     metodo_pagamento: str,
     note_cliente: str = "",
     customer_id=None,
-    vat_rate_id=None,
     data_ora: datetime | None = None,
     punto_vendita_id: int | None = None,
     commit: bool = True,
@@ -49,10 +51,13 @@ def crea_vendita(
                 f"Disponibile: {disponibile}"
             )
 
+        if not prodotto.vat_rate or not prodotto.vat_rate.attiva:
+            raise ValueError(f"Aliquota IVA mancante o non attiva per {prodotto.nome}.")
+
         prezzo_unitario = Decimal(str(prodotto.prezzo_vendita))
         costo_unitario = Decimal(str(prodotto.prezzo_acquisto))
-        subtotale = prezzo_unitario * quantita
-        margine_riga = (prezzo_unitario - costo_unitario) * quantita
+        subtotale = (prezzo_unitario * quantita).quantize(MONEY)
+        margine_riga = ((prezzo_unitario - costo_unitario) * quantita).quantize(MONEY)
 
         righe_calcolate.append(
             {
@@ -62,6 +67,8 @@ def crea_vendita(
                 "costo_unitario": costo_unitario,
                 "subtotale": subtotale,
                 "margine_riga": margine_riga,
+                "vat_rate_id": prodotto.vat_rate_id,
+                "aliquota_iva": Decimal(str(prodotto.vat_rate.aliquota)),
             }
         )
         totale_lordo += subtotale
@@ -83,8 +90,10 @@ def crea_vendita(
     if sconto_importo > totale_lordo:
         sconto_importo = totale_lordo
 
-    totale_netto = totale_lordo - sconto_importo
-    margine_totale = margine_totale - sconto_importo
+    totale_lordo = totale_lordo.quantize(MONEY)
+    sconto_importo = sconto_importo.quantize(MONEY)
+    totale_netto = (totale_lordo - sconto_importo).quantize(MONEY)
+    margine_totale = (margine_totale - sconto_importo).quantize(MONEY)
 
     customer_id_int = to_int(customer_id, default=0) or None
     if customer_id_int:
@@ -92,15 +101,30 @@ def crea_vendita(
         if not customer:
             raise ValueError("Cliente selezionato non valido.")
 
-    vat_rate_id_int = to_int(vat_rate_id, default=0) or None
-    aliquota_iva = Decimal("0.00")
-    if vat_rate_id_int:
-        vat_rate = VatRate.query.filter_by(id=vat_rate_id_int, attiva=True).first()
-        if not vat_rate:
-            raise ValueError("Aliquota IVA selezionata non valida.")
-        aliquota_iva = Decimal(str(vat_rate.aliquota))
+    # I prezzi di vendita sono IVA inclusa. Lo sconto viene ripartito sulle
+    # righe e l'IVA viene scorporata con l'aliquota del singolo prodotto.
+    residuo_netto = totale_netto
+    totale_iva = Decimal("0.00")
+    for index, riga in enumerate(righe_calcolate):
+        if index == len(righe_calcolate) - 1:
+            netto_riga = residuo_netto
+        elif totale_lordo:
+            netto_riga = (riga["subtotale"] * totale_netto / totale_lordo).quantize(MONEY)
+            residuo_netto -= netto_riga
+        else:
+            netto_riga = Decimal("0.00")
+        aliquota = riga["aliquota_iva"]
+        iva_riga = (
+            netto_riga * aliquota / (Decimal("100.00") + aliquota)
+        ).quantize(MONEY)
+        riga["totale_netto"] = netto_riga
+        riga["totale_iva"] = iva_riga
+        totale_iva += iva_riga
 
-    totale_iva = (totale_netto * aliquota_iva) / Decimal("100")
+    aliquote = {riga["vat_rate_id"]: riga["aliquota_iva"] for riga in righe_calcolate}
+    vat_rate_id_int = next(iter(aliquote)) if len(aliquote) == 1 else None
+    aliquota_iva = next(iter(aliquote.values())) if len(aliquote) == 1 else Decimal("0.00")
+    totale_iva = totale_iva.quantize(MONEY)
 
     vendita = Sale(
         data_ora=data_ora or utc_now_naive(),
@@ -129,6 +153,9 @@ def crea_vendita(
             quantita=r["quantita"],
             prezzo_unitario=r["prezzo_unitario"],
             subtotale=r["subtotale"],
+            totale_netto=r["totale_netto"],
+            aliquota_iva_snapshot=r["aliquota_iva"],
+            totale_iva=r["totale_iva"],
             costo_unitario_snapshot=r["costo_unitario"],
             margine_riga=r["margine_riga"],
         )

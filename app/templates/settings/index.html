@@ -121,49 +121,5 @@
     </div>
   </div>
 
-  <div class="col-lg-6">
-    <div class="panel-card h-100">
-      <h5>Anagrafica clienti</h5>
-      <form method="post" action="{{ url_for('settings.crea_cliente') }}" class="row g-2 mb-3">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="col-md-6"><input class="form-control" name="nome" placeholder="Nome" required></div>
-        <div class="col-md-6"><input class="form-control" name="cognome" placeholder="Cognome"></div>
-        <div class="col-md-6"><input class="form-control" name="ragione_sociale" placeholder="Ragione sociale"></div>
-        <div class="col-md-6"><input class="form-control" name="telefono" placeholder="Telefono"></div>
-        <div class="col-md-6"><input class="form-control" name="email" placeholder="Email"></div>
-        <div class="col-md-6"><input class="form-control" name="indirizzo" placeholder="Indirizzo"></div>
-        <div class="col-md-6"><input class="form-control" name="partita_iva" placeholder="Partita IVA"></div>
-        <div class="col-md-6"><input class="form-control" name="codice_fiscale" placeholder="Codice fiscale"></div>
-        <div class="col-12"><input class="form-control" name="note" placeholder="Note"></div>
-        <div class="col-12 d-grid"><button class="btn btn-outline-light">Aggiungi cliente</button></div>
-      </form>
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead><tr><th>Cliente</th><th>Contatti</th><th>Stato</th><th></th></tr></thead>
-          <tbody>
-            {% for cliente in clienti %}
-              <tr>
-                <td>{{ cliente.display_name }}</td>
-                <td>{{ cliente.email or cliente.telefono or '-' }}</td>
-                <td>
-                  {% if cliente.attivo %}
-                    <span class="badge bg-success">Attivo</span>
-                  {% else %}
-                    <span class="badge bg-secondary">Disattivato</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <form method="post" action="{{ url_for('settings.toggle_cliente', customer_id=cliente.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button class="btn btn-sm btn-outline-light">Toggle</button>
-                  </form>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 </div>
 {% endblock %}
