@@ -92,6 +92,7 @@ def _register_blueprints(app: Flask) -> None:
     from .controllers.customer_controller import customer_bp
     from .controllers.dashboard_controller import dashboard_bp
     from .controllers.inventory_controller import inventory_bp
+    from .controllers.log_controller import log_bp
     from .controllers.product_controller import product_bp
     from .controllers.report_controller import report_bp
     from .controllers.sales_controller import sales_bp
@@ -103,6 +104,7 @@ def _register_blueprints(app: Flask) -> None:
     app.register_blueprint(cash_bp)
     app.register_blueprint(customer_bp)
     app.register_blueprint(inventory_bp)
+    app.register_blueprint(log_bp)
     app.register_blueprint(sales_bp)
     app.register_blueprint(analysis_bp)
     app.register_blueprint(report_bp)

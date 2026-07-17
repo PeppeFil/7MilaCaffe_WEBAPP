@@ -55,6 +55,11 @@
             <a class="nav-link {% if request.path.startswith('/report') %}active{% endif %}" href="{{ url_for('report.index') }}" title="Report">
               <i class="bi bi-file-earmark-text nav-icon"></i><span class="nav-text">Report</span>
             </a>
+            {% if current_user.username|lower == 'admin' %}
+              <a class="nav-link {% if request.path.startswith('/log') %}active{% endif %}" href="{{ url_for('logs.index') }}" title="Log">
+                <i class="bi bi-shield-check nav-icon"></i><span class="nav-text">Log</span>
+              </a>
+            {% endif %}
             <a class="nav-link {% if request.path.startswith('/impostazioni') %}active{% endif %}" href="{{ url_for('settings.index') }}" title="Impostazioni">
               <i class="bi bi-gear-fill nav-icon"></i><span class="nav-text">Impostazioni</span>
             </a>

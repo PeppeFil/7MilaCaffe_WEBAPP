@@ -1,9 +1,22 @@
 """Catalogo iniziale ricavato dalle fatture di acquisto di giugno 2026."""
 
+import re
 from decimal import Decimal, ROUND_HALF_UP
 
+from sqlalchemy import func
+
 from app.extensions import db
-from app.models import Brand, Category, Compatibility, Product, StoreLocation, Supplier, User, VatRate
+from app.models import (
+    Brand,
+    Category,
+    Compatibility,
+    Product,
+    StoreInventory,
+    StoreLocation,
+    Supplier,
+    User,
+    VatRate,
+)
 from app.services.inventory_service import registra_movimento
 
 
@@ -42,7 +55,7 @@ IMMAGINI_PRODOTTI = {
     "032415800016": _local_product_image("032415800016"),
     "032415800017": _local_product_image("032415800017"),
     "032415800018": _local_product_image("032415800018"),
-    "032416202882": "https://lollocaffeonline.it/media/catalog/product/l/o/lollo-dolce-gusto_1_1.jpg",
+    "032416202882": _local_product_image("032416202882"),
     "032415900030": _local_product_image("032415900030"),
     "032415900032": _local_product_image("032415900032"),
     "032315200058": _local_product_image("032315200058"),
@@ -96,6 +109,11 @@ PREZZI_VENDITA_MANUALI = {
     "8029804016965": Decimal("17.00"),  # Cialde Barbaro Rosa
     "8029804009776": Decimal("19.00"),  # Barbaro A Modo Mio Rosa
     "8029804003859": Decimal("24.00"),  # Barbaro Dolce Gusto Blu
+}
+
+
+IMMAGINI_PRODOTTI_PER_NOME = {
+    "caffe donna regina": "/static/img/products/donna-regina.jpg",
 }
 
 
@@ -265,8 +283,147 @@ def sync_catalogo_reale() -> tuple[int, int]:
             product.quantita_disponibile = row["quantita"]
         creati += 1
 
+    # Alcuni articoli vengono creati manualmente e non appartengono al listino
+    # iniziale: aggiorniamo comunque le foto locali quando il nome coincide.
+    for nome, immagine_url in IMMAGINI_PRODOTTI_PER_NOME.items():
+        prodotto = Product.query.filter(func.lower(Product.nome) == nome).first()
+        if prodotto:
+            prodotto.immagine_url = immagine_url
+
     db.session.commit()
     return creati, presenti
+
+
+SINGLE_SKU_SUFFIX = "-SINGOLA"
+SINGLE_CATEGORY_NAME = "Singole"
+
+
+def _unita_per_confezione(formato: str | None) -> int | None:
+    """Restituisce il primo numero del formato, se rappresenta una confezione valida."""
+    match = re.search(r"\d+", formato or "")
+    if not match:
+        return None
+    unita = int(match.group())
+    return unita if unita > 0 else None
+
+
+def _sku_singola(prodotto: Product) -> str:
+    if prodotto.sku_barcode:
+        # Il campo SKU ammette 80 caratteri; conserviamo il suffisso identificativo.
+        return f"{prodotto.sku_barcode[: 80 - len(SINGLE_SKU_SUFFIX)]}{SINGLE_SKU_SUFFIX}"
+    return f"SINGOLA-{prodotto.id}"
+
+
+def sync_varianti_singole() -> tuple[int, int, int]:
+    """Crea o riallinea le unita singole di capsule e cialde.
+
+    Le giacenze partono volutamente da zero: duplicare la disponibilita delle
+    confezioni conteggerebbe due volte la stessa merce. L'operatore puo caricare
+    le singole quando apre fisicamente una confezione.
+    """
+    categoria_singole = Category.query.filter(
+        func.lower(Category.nome) == SINGLE_CATEGORY_NAME.lower()
+    ).first()
+    if not categoria_singole:
+        categoria_singole = Category(
+            nome=SINGLE_CATEGORY_NAME,
+            descrizione="Unita singole ricavate dalle confezioni di capsule e cialde.",
+        )
+        db.session.add(categoria_singole)
+        db.session.flush()
+    else:
+        categoria_singole.nome = SINGLE_CATEGORY_NAME
+        categoria_singole.descrizione = (
+            "Unita singole ricavate dalle confezioni di capsule e cialde."
+        )
+
+    sorgenti = (
+        Product.query.join(Product.categoria)
+        .filter(
+            func.lower(Category.nome).in_(["capsule", "cialde"]),
+            Product.attivo.is_(True),
+        )
+        .order_by(Product.id.asc())
+        .all()
+    )
+    punti_vendita = StoreLocation.query.filter_by(attivo=True).all()
+
+    creati = 0
+    aggiornati = 0
+    ignorati = 0
+    for sorgente in sorgenti:
+        unita = _unita_per_confezione(sorgente.formato_confezione)
+        if not unita:
+            ignorati += 1
+            continue
+
+        sku = _sku_singola(sorgente)
+        singola = Product.query.filter_by(sku_barcode=sku).first()
+        nuovi_prezzi = {
+            "prezzo_acquisto": (Decimal(sorgente.prezzo_acquisto) / unita).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+            "prezzo_vendita": (Decimal(sorgente.prezzo_vendita) / unita).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
+        }
+        nome_unita = "1 cialda" if sorgente.categoria.nome.lower() == "cialde" else "1 capsula"
+
+        if not singola:
+            singola = Product(
+                nome=f"{sorgente.nome[:129]} - Singola",
+                categoria_id=categoria_singole.id,
+                marca_id=sorgente.marca_id,
+                vat_rate_id=sorgente.vat_rate_id,
+                compatibilita_id=sorgente.compatibilita_id,
+                formato_confezione=nome_unita,
+                prezzo_acquisto=nuovi_prezzi["prezzo_acquisto"],
+                prezzo_vendita=nuovi_prezzi["prezzo_vendita"],
+                quantita_disponibile=0,
+                quantita_minima_alert=0,
+                sku_barcode=sku,
+                immagine_url=sorgente.immagine_url,
+                fornitore_id=sorgente.fornitore_id,
+                note=f"Variante singola del prodotto #{sorgente.id} ({unita} unita per confezione).",
+                attivo=True,
+            )
+            db.session.add(singola)
+            db.session.flush()
+            creati += 1
+        else:
+            singola.nome = f"{sorgente.nome[:129]} - Singola"
+            singola.categoria_id = categoria_singole.id
+            singola.marca_id = sorgente.marca_id
+            singola.vat_rate_id = sorgente.vat_rate_id
+            singola.compatibilita_id = sorgente.compatibilita_id
+            singola.formato_confezione = nome_unita
+            singola.prezzo_acquisto = nuovi_prezzi["prezzo_acquisto"]
+            singola.prezzo_vendita = nuovi_prezzi["prezzo_vendita"]
+            singola.immagine_url = sorgente.immagine_url
+            singola.fornitore_id = sorgente.fornitore_id
+            singola.note = (
+                f"Variante singola del prodotto #{sorgente.id} ({unita} unita per confezione)."
+            )
+            singola.attivo = sorgente.attivo
+            aggiornati += 1
+
+        for punto_vendita in punti_vendita:
+            giacenza = StoreInventory.query.filter_by(
+                punto_vendita_id=punto_vendita.id,
+                prodotto_id=singola.id,
+            ).first()
+            if not giacenza:
+                db.session.add(
+                    StoreInventory(
+                        punto_vendita_id=punto_vendita.id,
+                        prodotto_id=singola.id,
+                        quantita_disponibile=0,
+                        quantita_minima_alert=0,
+                    )
+                )
+
+    db.session.commit()
+    return creati, aggiornati, ignorati
 
 
 def _ensure_by_name(model, names: set[str]) -> dict:

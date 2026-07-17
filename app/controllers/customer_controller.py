@@ -1,10 +1,11 @@
 from flask import Blueprint, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import Customer
+from app.services.audit_service import registra_attivita
 
 
 customer_bp = Blueprint("customers", __name__)
@@ -47,6 +48,14 @@ def nuovo():
         try:
             _apply_customer_data(cliente, request.form)
             db.session.add(cliente)
+            db.session.flush()
+            registra_attivita(
+                utente_id=current_user.id,
+                azione="creazione_cliente",
+                entita_tipo="customer",
+                entita_id=str(cliente.id),
+                dettagli=cliente.ragione_sociale or cliente.nome,
+            )
             db.session.commit()
             flash("Cliente creato correttamente.", "success")
             return redirect(url_for("customers.index"))
@@ -63,6 +72,13 @@ def modifica(customer_id):
     if request.method == "POST":
         try:
             _apply_customer_data(cliente, request.form)
+            registra_attivita(
+                utente_id=current_user.id,
+                azione="modifica_cliente",
+                entita_tipo="customer",
+                entita_id=str(cliente.id),
+                dettagli=cliente.ragione_sociale or cliente.nome,
+            )
             db.session.commit()
             flash("Cliente aggiornato.", "success")
             return redirect(url_for("customers.index", stato="tutti"))
@@ -77,6 +93,13 @@ def modifica(customer_id):
 def elimina(customer_id):
     cliente = Customer.query.get_or_404(customer_id)
     cliente.attivo = False
+    registra_attivita(
+        utente_id=current_user.id,
+        azione="disattiva_cliente",
+        entita_tipo="customer",
+        entita_id=str(cliente.id),
+        dettagli=cliente.ragione_sociale or cliente.nome,
+    )
     db.session.commit()
     flash("Cliente eliminato dall'elenco attivo. Le vendite storiche restano conservate.", "warning")
     return redirect(url_for("customers.index"))
@@ -87,6 +110,13 @@ def elimina(customer_id):
 def ripristina(customer_id):
     cliente = Customer.query.get_or_404(customer_id)
     cliente.attivo = True
+    registra_attivita(
+        utente_id=current_user.id,
+        azione="ripristina_cliente",
+        entita_tipo="customer",
+        entita_id=str(cliente.id),
+        dettagli=cliente.ragione_sociale or cliente.nome,
+    )
     db.session.commit()
     flash("Cliente ripristinato.", "success")
     return redirect(url_for("customers.index", stato="tutti"))

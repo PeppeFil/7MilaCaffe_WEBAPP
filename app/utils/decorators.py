@@ -17,3 +17,19 @@ def role_required(*allowed_roles: str):
         return wrapped
 
     return decorator
+
+
+def username_required(required_username: str):
+    """Limita una vista a uno specifico username, senza distinzione di maiuscole."""
+
+    def decorator(view_func):
+        @wraps(view_func)
+        @login_required
+        def wrapped(*args, **kwargs):
+            if (current_user.username or "").casefold() != required_username.casefold():
+                abort(403)
+            return view_func(*args, **kwargs)
+
+        return wrapped
+
+    return decorator

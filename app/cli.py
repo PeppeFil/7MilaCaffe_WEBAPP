@@ -6,7 +6,7 @@ from flask.cli import with_appcontext
 from .extensions import db
 from .models import Role, User
 from .models.constants import RUOLO_ADMIN
-from .services.catalog_service import sync_catalogo_reale
+from .services.catalog_service import sync_catalogo_reale, sync_varianti_singole
 
 
 def register_commands(app) -> None:
@@ -66,3 +66,9 @@ def import_catalogo_reale() -> None:
     """Importa una sola volta il catalogo iniziale dai listini forniti."""
     creati, presenti = sync_catalogo_reale()
     click.echo(f"Catalogo reale: {creati} prodotti creati, {presenti} gia presenti.")
+    singole_create, singole_aggiornate, singole_ignorate = sync_varianti_singole()
+    click.echo(
+        "Varianti singole: "
+        f"{singole_create} create, {singole_aggiornate} aggiornate, "
+        f"{singole_ignorate} ignorate."
+    )

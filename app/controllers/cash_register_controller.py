@@ -2,7 +2,7 @@ import json
 
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import or_
+from sqlalchemy import case, func, or_
 
 from app.models import Brand, Category, Compatibility, Customer, Product, Sale
 from app.models.constants import METODI_PAGAMENTO
@@ -12,6 +12,16 @@ from app.utils.parsers import to_int
 
 
 cash_bp = Blueprint("cash", __name__)
+
+
+def _ordinamento_prodotti_cassa():
+    """Borbone e Lollo in testa, poi le altre marche in ordine alfabetico."""
+    priorita_marca = case(
+        (func.lower(Brand.nome).like("%borbone%"), 0),
+        (func.lower(Brand.nome).like("%lollo%"), 1),
+        else_=2,
+    )
+    return priorita_marca, func.lower(Brand.nome), func.lower(Product.nome)
 
 
 def _serialize_product(product: Product, quantita_disponibile: int | None = None) -> dict:
@@ -36,7 +46,13 @@ def _serialize_product(product: Product, quantita_disponibile: int | None = None
 def cassa():
     punto_vendita = punto_vendita_corrente()
     categorie = Category.query.order_by(Category.nome.asc()).all()
-    prodotti_popolari = Product.query.filter_by(attivo=True).order_by(Product.nome.asc()).limit(25).all()
+    prodotti_popolari = (
+        Product.query.join(Product.brand)
+        .filter(Product.attivo.is_(True))
+        .order_by(*_ordinamento_prodotti_cassa())
+        .limit(25)
+        .all()
+    )
     giacenze = (
         mappa_giacenze(punto_vendita.id, [p.id for p in prodotti_popolari])
         if punto_vendita
@@ -87,7 +103,7 @@ def search_products():
     if categoria_id_int:
         query = query.filter(Product.categoria_id == categoria_id_int)
 
-    products = query.order_by(Product.nome.asc()).limit(40).all()
+    products = query.order_by(*_ordinamento_prodotti_cassa()).limit(40).all()
     giacenze = (
         mappa_giacenze(punto_vendita.id, [p.id for p in products]) if punto_vendita else {}
     )
