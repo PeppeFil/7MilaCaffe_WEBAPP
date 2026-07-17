@@ -150,6 +150,7 @@ def test_cash_page_uses_simple_product_tiles(client):
     assert b'id="customerCheckoutModal"' in response.data
     assert b'id="checkoutNewCustomerForm"' in response.data
     assert b'id="singleQuantityModal"' in response.data
+    assert b"Vendita cialde e capsule singole" in response.data
     assert b"Cliente generico" in response.data
     assert b'id="vatRateId"' not in response.data
 

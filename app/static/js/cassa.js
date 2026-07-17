@@ -72,8 +72,7 @@ function isSingleProduct(product) {
 }
 
 function usesQuickSingleQuantity(product) {
-  return isSingleProduct(product)
-    && String(product?.formato_confezione || "").toLocaleLowerCase("it").includes("cialda");
+  return isSingleProduct(product);
 }
 
 function setGridBusy(isBusy) {
