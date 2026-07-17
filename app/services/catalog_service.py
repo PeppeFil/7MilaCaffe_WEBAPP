@@ -126,10 +126,32 @@ IMMAGINI_PRODOTTI_PER_NOME = {
 ALIQUOTE_IVA_ACQUISTO = {
     "Capsule": Decimal("22"),
     "Cialde": Decimal("22"),
-    "Capsule solubili": Decimal("10"),
     "Solubili": Decimal("10"),
     "Grani": Decimal("22"),
 }
+
+
+ULTIMO_IMPORT_BORBONE_SKU = (
+    "REBDEK100N",
+    "REBMIANAPOLI10X10N",
+    "AMSDEK100NDONCARLO",
+    "44BDEK150N",
+    "LVBROSSA100N",
+    "LVBORO100N",
+    "BLTBBLU100N",
+    "BLTBRED100N",
+    "DGBBLU90N",
+    "DGBRED90N",
+    "CFIBBLU48X10",
+    "CFIBRED48X10",
+    "GRBRED006REDVENDING",
+    "GRBBLU006SUPERVENDIN",
+    "DGSUPERGIN4X16",
+    "AMGINSENG6X16",
+    "RESGINSEN6X10",
+    "AMTHELIMONE6X16",
+    "AMNOCCIOLINO6X16",
+)
 
 
 def _costo_iva_inclusa(costo_imponibile: Decimal, categoria: str) -> Decimal:
@@ -225,7 +247,7 @@ CATALOGO_REALE = [
     _product("8055176432348", "Borbone Dolce Gusto Red", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Dolce Gusto", "50 capsule", "7.03", 20, IMG_DOLCE_GUSTO),
     _product("8055176432744", "Respresso Borbone 100% Arabica Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "50 capsule", "7.41", 5, IMG_CAPSULE),
     _product("8055176432751", "Don Carlo Borbone 100% Arabica Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "50 capsule", "7.41", 5, IMG_DON_CARLO),
-    _borbone_product("8034028333880", "Caffe Borbone Ginseng", "Capsule solubili", "Sistema Borbone", "4 x 18 capsule", "14.28", 3, IMG_CAPSULE),
+    _borbone_product("8034028333880", "Caffe Borbone Ginseng", "Solubili", "Sistema Borbone", "4 x 18 capsule", "14.28", 3, IMG_CAPSULE),
     # Articoli presenti nei nuovi documenti ma non ancora nell'anagrafica.
     # La giacenza parte da zero: i documenti storici servono al costo, non a
     # simulare merce che potrebbe essere già stata venduta o trasferita.
@@ -258,16 +280,16 @@ CATALOGO_REALE = [
     _product("032315200058", "Cialde Lollo Oro", "Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "15.26", 22, IMG_CIALDE),
     _product("032315200057", "Cialde Lollo Classico", "Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "14.28", 33, IMG_CIALDE),
     _product("032315200059", "Cialde Lollo Dek", "Lollo", "Dical SRL", "Cialde", "ESE 44 mm", "150 cialde", "16.68", 20, IMG_CIALDE),
-    _product("042720306208", "Chococup Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
-    _product("042720306207", "Polvere di Stelle Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
-    _product("042720306206", "Coccoloso Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
-    _product("042720306209", "Caramelloso Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
-    _product("042720306210", "Nocciocao Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
-    _product("042720306211", "Cioccolatoso Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.64", 24, IMG_DOLCE_GUSTO),
-    _product("042720306212", "Tè al Limone Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.29", 24, IMG_DOLCE_GUSTO),
-    _product("042720306213", "Lollorzo Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.29", 16, IMG_DOLCE_GUSTO),
-    _product("042720306214", "LolloCappuccino Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
-    _product("042720306215", "LolloGinseng Dolce Gusto", "Dical", "Dical SRL", "Capsule solubili", "Dolce Gusto", "10 capsule", "1.91", 24, IMG_DOLCE_GUSTO),
+    _product("042720306208", "Chococup Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
+    _product("042720306207", "Polvere di Stelle Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
+    _product("042720306206", "Coccoloso Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
+    _product("042720306209", "Caramelloso Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
+    _product("042720306210", "Nocciocao Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.64", 16, IMG_DOLCE_GUSTO),
+    _product("042720306211", "Cioccolatoso Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.64", 24, IMG_DOLCE_GUSTO),
+    _product("042720306212", "Tè al Limone Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.29", 24, IMG_DOLCE_GUSTO),
+    _product("042720306213", "Lollorzo Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.29", 16, IMG_DOLCE_GUSTO),
+    _product("042720306214", "LolloCappuccino Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.91", 16, IMG_DOLCE_GUSTO),
+    _product("042720306215", "LolloGinseng Dolce Gusto", "Dical", "Dical SRL", "Solubili", "Dolce Gusto", "10 capsule", "1.91", 24, IMG_DOLCE_GUSTO),
     _product("032423401923", "Passionesse Lollo Nera", "Lollo", "Dical SRL", "Capsule", "Esse Caffe", "100 capsule", "10.43", 10, IMG_CAPSULE),
     # Nutis / Caffe Barbaro - fattura 10/06/2026
     _product("8029804003859", "Caffe Barbaro DG Blu", "Caffe Barbaro", "Nutis SRL", "Capsule", "Dolce Gusto", "100 capsule", "15.61", 70, IMG_DOLCE_GUSTO),

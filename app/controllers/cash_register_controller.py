@@ -4,9 +4,18 @@ from flask import Blueprint, flash, jsonify, redirect, render_template, request,
 from flask_login import current_user, login_required
 from sqlalchemy import case, func, or_
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from app.extensions import db
-from app.models import Brand, Category, Compatibility, Customer, Product, Sale
+from app.models import (
+    Brand,
+    Category,
+    Compatibility,
+    Customer,
+    Product,
+    Sale,
+    SaleItem,
+)
 from app.models.constants import METODI_PAGAMENTO
 from app.services.sale_service import crea_vendita
 from app.services.customer_service import create_customer, customer_error
@@ -15,6 +24,7 @@ from app.utils.parsers import to_int
 
 
 cash_bp = Blueprint("cash", __name__)
+CATEGORIE_CONFEZIONI_CAFFE = ("capsule", "cialde", "grani")
 
 
 def _ordinamento_prodotti_cassa():
@@ -25,6 +35,48 @@ def _ordinamento_prodotti_cassa():
         else_=2,
     )
     return priorita_marca, func.lower(Brand.nome), func.lower(Product.nome)
+
+
+def _vendite_per_confezione(punto_vendita_id: int | None):
+    """Aggrega le vendite completate sulla confezione, incluse le sue singole."""
+    prodotto_venduto = aliased(Product)
+    confezione_id = func.coalesce(
+        prodotto_venduto.confezione_origine_id,
+        SaleItem.prodotto_id,
+    )
+    query = (
+        db.session.query(
+            confezione_id.label("confezione_id"),
+            func.sum(SaleItem.quantita).label("quantita_venduta"),
+        )
+        .select_from(SaleItem)
+        .join(Sale, Sale.id == SaleItem.vendita_id)
+        .join(prodotto_venduto, prodotto_venduto.id == SaleItem.prodotto_id)
+        .filter(Sale.stato == "completata")
+    )
+    if punto_vendita_id:
+        query = query.filter(Sale.punto_vendita_id == punto_vendita_id)
+    return query.group_by(confezione_id).subquery()
+
+
+def _query_tutti_caffe(punto_vendita_id: int | None):
+    vendite = _vendite_per_confezione(punto_vendita_id)
+    query = (
+        Product.query.join(Product.brand)
+        .join(Product.categoria)
+        .outerjoin(Product.compatibility)
+        .outerjoin(vendite, vendite.c.confezione_id == Product.id)
+        .filter(
+            Product.attivo.is_(True),
+            Product.confezione_origine_id.is_(None),
+            func.lower(Category.nome).in_(CATEGORIE_CONFEZIONI_CAFFE),
+        )
+    )
+    ordinamento = (
+        func.coalesce(vendite.c.quantita_venduta, 0).desc(),
+        *_ordinamento_prodotti_cassa(),
+    )
+    return query, ordinamento
 
 
 def _serialize_product(product: Product, quantita_disponibile: int | None = None) -> dict:
@@ -49,19 +101,18 @@ def _serialize_product(product: Product, quantita_disponibile: int | None = None
 @login_required
 def cassa():
     punto_vendita = punto_vendita_corrente()
-    categorie = Category.query.order_by(Category.nome.asc()).all()
-    prodotti_popolari = (
-        Product.query.join(Product.brand)
-        .filter(
-            Product.attivo.is_(True),
-            Product.confezione_origine_id.is_(None),
-        )
-        .order_by(*_ordinamento_prodotti_cassa())
-        .limit(25)
+    punto_vendita_id = punto_vendita.id if punto_vendita else None
+    categorie = (
+        Category.query.join(Category.prodotti)
+        .filter(Product.attivo.is_(True))
+        .distinct()
+        .order_by(Category.nome.asc())
         .all()
     )
+    prodotti_query, ordinamento = _query_tutti_caffe(punto_vendita_id)
+    prodotti_popolari = prodotti_query.order_by(*ordinamento).limit(100).all()
     disponibilita = mappa_disponibilita_vendibile(
-        punto_vendita.id if punto_vendita else None, prodotti_popolari
+        punto_vendita_id, prodotti_popolari
     )
     clienti = Customer.query.filter_by(attivo=True).order_by(Customer.nome.asc(), Customer.cognome.asc()).all()
     return render_template(
@@ -84,14 +135,26 @@ def cassa():
 @login_required
 def search_products():
     punto_vendita = punto_vendita_corrente()
+    punto_vendita_id = punto_vendita.id if punto_vendita else None
     q = (request.args.get("q") or "").strip()
     categoria_id = request.args.get("categoria_id")
+    categoria_id_int = to_int(categoria_id, default=0)
+    if categoria_id and not categoria_id_int:
+        return jsonify({"error": "Categoria non valida."}), 400
+    if categoria_id_int:
+        query = (
+            Product.query.join(Product.brand)
+            .join(Product.categoria)
+            .outerjoin(Product.compatibility)
+            .filter(
+                Product.attivo.is_(True),
+                Product.categoria_id == categoria_id_int,
+            )
+        )
+        ordinamento = _ordinamento_prodotti_cassa()
+    else:
+        query, ordinamento = _query_tutti_caffe(punto_vendita_id)
 
-    query = (
-        Product.query.join(Product.brand)
-        .outerjoin(Product.compatibility)
-        .filter(Product.attivo.is_(True))
-    )
     if q:
         like = f"%{q}%"
         query = query.filter(
@@ -102,17 +165,10 @@ def search_products():
                 Product.sku_barcode.ilike(like),
             )
         )
-    categoria_id_int = to_int(categoria_id, default=0)
-    if categoria_id and not categoria_id_int:
-        return jsonify({"error": "Categoria non valida."}), 400
-    if categoria_id_int:
-        query = query.filter(Product.categoria_id == categoria_id_int)
-    else:
-        query = query.filter(Product.confezione_origine_id.is_(None))
 
-    products = query.order_by(*_ordinamento_prodotti_cassa()).limit(40).all()
+    products = query.order_by(*ordinamento).limit(100).all()
     disponibilita = mappa_disponibilita_vendibile(
-        punto_vendita.id if punto_vendita else None, products
+        punto_vendita_id, products
     )
     return jsonify([
         _serialize_product(

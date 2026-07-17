@@ -1,7 +1,17 @@
 from sqlalchemy import event
 
 from app.extensions import db
-from app.models import Category, Customer, Product, StoreInventory, StoreLocation, User
+from app.models import (
+    Brand,
+    Category,
+    Customer,
+    Product,
+    Sale,
+    SaleItem,
+    StoreInventory,
+    StoreLocation,
+    User,
+)
 from app.services.catalog_service import sync_varianti_singole
 from tests.helpers import get_csrf_token, login
 
@@ -163,6 +173,93 @@ def test_cash_all_excludes_singles_but_singles_category_returns_them(app, client
     singole = client.get(f"/cassa/search?categoria_id={categoria_id}").get_json()
     assert {prodotto["id"] for prodotto in singole} == {singola_id}
     assert singole[0]["is_variante_singola"] is True
+
+
+def test_cash_all_contains_only_coffee_packs_and_solubles_keep_their_category(app, client):
+    with app.app_context():
+        sorgente = Product.query.filter_by(sku_barcode="TEST-001").one()
+        categoria_solubili = Category(nome="Solubili")
+        db.session.add(categoria_solubili)
+        db.session.flush()
+        solubile = Product(
+            nome="Ginseng Test",
+            categoria_id=categoria_solubili.id,
+            marca_id=sorgente.marca_id,
+            vat_rate_id=sorgente.vat_rate_id,
+            compatibilita_id=sorgente.compatibilita_id,
+            prezzo_acquisto=1,
+            prezzo_vendita=2,
+            quantita_disponibile=10,
+            sku_barcode="SOLUBILE-TEST",
+            attivo=True,
+        )
+        db.session.add(solubile)
+        db.session.commit()
+        solubile_id = solubile.id
+        categoria_id = categoria_solubili.id
+
+    login(client, "operatore", "operator123")
+
+    tutti = client.get("/cassa/search").get_json()
+    assert solubile_id not in {prodotto["id"] for prodotto in tutti}
+
+    solubili = client.get(f"/cassa/search?categoria_id={categoria_id}").get_json()
+    assert {prodotto["id"] for prodotto in solubili} == {solubile_id}
+
+
+def test_cash_all_orders_best_sellers_first_for_current_store(app, client):
+    with app.app_context():
+        sorgente = Product.query.filter_by(sku_barcode="TEST-001").one()
+        marca = Brand.query.filter_by(nome="Marca Test").one()
+        piu_venduto = Product(
+            nome="Capsule Piu Vendute",
+            categoria_id=sorgente.categoria_id,
+            marca_id=marca.id,
+            vat_rate_id=sorgente.vat_rate_id,
+            compatibilita_id=sorgente.compatibilita_id,
+            prezzo_acquisto=1,
+            prezzo_vendita=2,
+            quantita_disponibile=30,
+            sku_barcode="BEST-SELLER",
+            attivo=True,
+        )
+        punto_vendita = StoreLocation(
+            codice="best-seller-store",
+            nome="Negozio Classifica",
+            indirizzo="Via Test 1",
+            cap="91100",
+            comune="Trapani",
+            provincia="TP",
+            ragione_sociale="Negozio Classifica SRL",
+            partita_iva="00000000006",
+        )
+        db.session.add_all([piu_venduto, punto_vendita])
+        db.session.flush()
+        operatore = User.query.filter_by(username="operatore").one()
+        operatore.punto_vendita_predefinito_id = punto_vendita.id
+        vendita = Sale(
+            operatore_id=operatore.id,
+            punto_vendita_id=punto_vendita.id,
+            stato="completata",
+        )
+        db.session.add(vendita)
+        db.session.flush()
+        db.session.add(
+            SaleItem(
+                vendita_id=vendita.id,
+                prodotto_id=piu_venduto.id,
+                quantita=12,
+                prezzo_unitario=2,
+                subtotale=24,
+            )
+        )
+        db.session.commit()
+        prodotto_id = piu_venduto.id
+
+    login(client, "operatore", "operator123")
+    prodotti = client.get("/cassa/search").get_json()
+
+    assert prodotti[0]["id"] == prodotto_id
 
 
 def test_checkout_can_create_customer_without_leaving_cash_register(app, client):

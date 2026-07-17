@@ -1,9 +1,18 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Brand, Category, InventoryMovement, Product, VatRate
+from app.models import (
+    Brand,
+    Category,
+    InventoryMovement,
+    Product,
+    StoreInventory,
+    StoreLocation,
+    VatRate,
+)
 from app.services.catalog_service import (
     CATALOGO_REALE,
+    ULTIMO_IMPORT_BORBONE_SKU,
     _sku_singola,
     sync_catalogo_reale,
     sync_varianti_singole,
@@ -99,10 +108,35 @@ def test_borbone_invoices_use_only_base_discount_and_retail_units():
     }
     assert all(catalogo[sku]["quantita"] == 0 for sku in nuovi_sku)
     assert all(catalogo[sku]["aggiorna_costo_da_fattura"] for sku in nuovi_sku)
+    assert all(row["category"] != "Capsule solubili" for row in CATALOGO_REALE)
 
 
 def test_new_invoice_products_start_at_zero_without_inventory_movements(app):
     with app.app_context():
+        db.session.add_all(
+            [
+                StoreLocation(
+                    codice="via-pepoli",
+                    nome="Pepoli",
+                    indirizzo="Via Pepoli 198",
+                    cap="91100",
+                    comune="Trapani",
+                    provincia="TP",
+                    ragione_sociale="Pepoli",
+                    partita_iva="00000000001",
+                ),
+                StoreLocation(
+                    codice="via-vespri",
+                    nome="Vespri",
+                    indirizzo="Via Vespri 235",
+                    cap="91019",
+                    comune="Valderice",
+                    provincia="TP",
+                    ragione_sociale="Vespri",
+                    partita_iva="00000000002",
+                ),
+            ]
+        )
         db.session.add(VatRate(nome="IVA 10%", aliquota=10, attiva=True))
         db.session.commit()
 
@@ -112,3 +146,24 @@ def test_new_invoice_products_start_at_zero_without_inventory_movements(app):
         assert prodotto.quantita_disponibile == 0
         assert prodotto.prezzo_acquisto == Decimal("17.697930")
         assert InventoryMovement.query.filter_by(prodotto_id=prodotto.id).count() == 0
+
+        runner = app.test_cli_runner()
+        result = runner.invoke(args=["imposta-giacenza-ultimo-import", "--quantita", "30"])
+        assert result.exit_code == 0, result.output
+        assert "38 rettifiche" in result.output
+        assert StoreInventory.query.filter(
+            StoreInventory.prodotto_id.in_(
+                Product.query.with_entities(Product.id).filter(
+                    Product.sku_barcode.in_(ULTIMO_IMPORT_BORBONE_SKU)
+                )
+            ),
+            StoreInventory.quantita_disponibile == 30,
+        ).count() == len(ULTIMO_IMPORT_BORBONE_SKU) * 2
+        assert InventoryMovement.query.filter_by(prodotto_id=prodotto.id).count() == 2
+
+        second_result = runner.invoke(
+            args=["imposta-giacenza-ultimo-import", "--quantita", "30"]
+        )
+        assert second_result.exit_code == 0, second_result.output
+        assert "0 rettifiche" in second_result.output
+        assert InventoryMovement.query.filter_by(prodotto_id=prodotto.id).count() == 2
