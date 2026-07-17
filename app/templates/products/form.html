@@ -71,11 +71,14 @@
     </div>
     <div class="col-md-3">
       <label class="form-label">Quantità nel punto vendita attivo *</label>
-      <input type="number" min="0" step="1" class="form-control" name="quantita_disponibile" required value="{{ prodotto.giacenza_corrente if prodotto else '0' }}">
+      <input type="number" min="0" step="1" class="form-control" name="quantita_disponibile" required value="{{ prodotto.giacenza_corrente if prodotto else '0' }}" {% if prodotto and prodotto.is_variante_singola %}readonly aria-describedby="singleStockHelp"{% endif %}>
+      {% if prodotto and prodotto.is_variante_singola %}
+        <small id="singleStockHelp" class="form-text text-muted">Gestita automaticamente aprendo {{ prodotto.confezione_origine.nome }} ({{ prodotto.unita_per_confezione }} unità).</small>
+      {% endif %}
     </div>
     <div class="col-md-3">
       <label class="form-label">Scorta minima sede *</label>
-      <input type="number" min="0" step="1" class="form-control" name="quantita_minima_alert" required value="{{ prodotto.scorta_minima_corrente if prodotto else '0' }}">
+      <input type="number" min="0" step="1" class="form-control" name="quantita_minima_alert" required value="{{ prodotto.scorta_minima_corrente if prodotto else '0' }}" {% if prodotto and prodotto.is_variante_singola %}readonly{% endif %}>
     </div>
     <div class="col-md-4">
       <label class="form-label">Fornitore</label>

@@ -364,7 +364,7 @@ def sync_varianti_singole() -> tuple[int, int, int]:
         singola = Product.query.filter_by(sku_barcode=sku).first()
         nuovi_prezzi = {
             "prezzo_acquisto": (Decimal(sorgente.prezzo_acquisto) / unita).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
+                Decimal("0.000001"), rounding=ROUND_HALF_UP
             ),
             "prezzo_vendita": (Decimal(sorgente.prezzo_vendita) / unita).quantize(
                 Decimal("0.01"), rounding=ROUND_HALF_UP
@@ -387,6 +387,8 @@ def sync_varianti_singole() -> tuple[int, int, int]:
                 sku_barcode=sku,
                 immagine_url=sorgente.immagine_url,
                 fornitore_id=sorgente.fornitore_id,
+                confezione_origine_id=sorgente.id,
+                unita_per_confezione=unita,
                 note=f"Variante singola del prodotto #{sorgente.id} ({unita} unita per confezione).",
                 attivo=True,
             )
@@ -404,6 +406,8 @@ def sync_varianti_singole() -> tuple[int, int, int]:
             singola.prezzo_vendita = nuovi_prezzi["prezzo_vendita"]
             singola.immagine_url = sorgente.immagine_url
             singola.fornitore_id = sorgente.fornitore_id
+            singola.confezione_origine_id = sorgente.id
+            singola.unita_per_confezione = unita
             singola.note = (
                 f"Variante singola del prodotto #{sorgente.id} ({unita} unita per confezione)."
             )

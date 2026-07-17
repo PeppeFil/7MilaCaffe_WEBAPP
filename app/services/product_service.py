@@ -202,8 +202,9 @@ def _apply_product_data(prodotto: Product, data: dict) -> None:
     prodotto.prezzo_acquisto = to_decimal(data.get("prezzo_acquisto"), Decimal("0.00"))
     prodotto.prezzo_vendita = to_decimal(data.get("prezzo_vendita"), Decimal("0.00"))
     prodotto.vat_rate_id = to_int(data.get("vat_rate_id"))
-    prodotto.quantita_disponibile = to_int(data.get("quantita_disponibile"))
-    prodotto.quantita_minima_alert = to_int(data.get("quantita_minima_alert"))
+    if not prodotto.is_variante_singola:
+        prodotto.quantita_disponibile = to_int(data.get("quantita_disponibile"))
+        prodotto.quantita_minima_alert = to_int(data.get("quantita_minima_alert"))
     prodotto.sku_barcode = (data.get("sku_barcode") or "").strip() or None
     prodotto.immagine_url = (data.get("immagine_url") or "").strip() or None
 

@@ -47,11 +47,26 @@ def giacenza_prodotto(prodotto_id: int, punto_vendita_id: int) -> StoreInventory
     ).first()
 
 
-def quantita_disponibile(prodotto: Product, punto_vendita_id: int | None) -> int:
+def quantita_fisica(prodotto: Product, punto_vendita_id: int | None) -> int:
     if punto_vendita_id is None:
         return prodotto.quantita_disponibile
     giacenza = giacenza_prodotto(prodotto.id, punto_vendita_id)
     return giacenza.quantita_disponibile if giacenza else 0
+
+
+def quantita_disponibile(prodotto: Product, punto_vendita_id: int | None) -> int:
+    """Quantita vendibile, includendo le confezioni apribili automaticamente."""
+    fisica = quantita_fisica(prodotto, punto_vendita_id)
+    if not prodotto.confezione_origine_id or not prodotto.unita_per_confezione:
+        return fisica
+    confezione = prodotto.confezione_origine or db.session.get(
+        Product, prodotto.confezione_origine_id
+    )
+    if not confezione:
+        return fisica
+    return fisica + (
+        quantita_fisica(confezione, punto_vendita_id) * prodotto.unita_per_confezione
+    )
 
 
 def giacenza_o_crea(prodotto: Product, punto_vendita_id: int) -> StoreInventory:
@@ -74,3 +89,38 @@ def mappa_giacenze(punto_vendita_id: int, prodotto_ids: list[int] | None = None)
     if prodotto_ids:
         query = query.filter(StoreInventory.prodotto_id.in_(prodotto_ids))
     return {r.prodotto_id: r for r in query.all()}
+
+
+def mappa_disponibilita_vendibile(
+    punto_vendita_id: int | None, prodotti: list[Product]
+) -> dict[int, int]:
+    """Calcola in batch la disponibilita mostrata in cassa senza query N+1."""
+    ids = {prodotto.id for prodotto in prodotti}
+    ids.update(
+        prodotto.confezione_origine_id
+        for prodotto in prodotti
+        if prodotto.confezione_origine_id
+    )
+    if punto_vendita_id is None:
+        quantita = {
+            prodotto.id: prodotto.quantita_disponibile
+            for prodotto in Product.query.filter(Product.id.in_(ids)).all()
+        }
+    else:
+        quantita = {
+            prodotto_id: giacenza.quantita_disponibile
+            for prodotto_id, giacenza in mappa_giacenze(
+                punto_vendita_id, list(ids)
+            ).items()
+        }
+
+    result = {}
+    for prodotto in prodotti:
+        disponibile = quantita.get(prodotto.id, 0)
+        if prodotto.confezione_origine_id and prodotto.unita_per_confezione:
+            disponibile += (
+                quantita.get(prodotto.confezione_origine_id, 0)
+                * prodotto.unita_per_confezione
+            )
+        result[prodotto.id] = disponibile
+    return result

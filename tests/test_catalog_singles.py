@@ -22,6 +22,8 @@ def test_sync_varianti_singole_calculates_unit_prices_and_is_idempotent(app):
         assert singola.prezzo_vendita == Decimal("0.04")
         assert singola.immagine_url == sorgente.immagine_url
         assert singola.quantita_disponibile == 0
+        assert singola.confezione_origine_id == sorgente.id
+        assert singola.unita_per_confezione == 10
 
         create, updated, skipped = sync_varianti_singole()
 

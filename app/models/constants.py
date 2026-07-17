@@ -22,4 +22,6 @@ TIPI_MOVIMENTO = [
     "omaggio",
     "danneggiato",
     "ripristino_annullo_vendita",
+    "apertura_confezione",
+    "carico_da_confezione",
 ]

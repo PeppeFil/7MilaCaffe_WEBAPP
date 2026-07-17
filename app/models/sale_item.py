@@ -21,7 +21,7 @@ class SaleItem(db.Model):
     )
     totale_iva = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
     costo_unitario_snapshot = db.Column(
-        db.Numeric(10, 2), nullable=False, default=Decimal("0.00")
+        db.Numeric(14, 6), nullable=False, default=Decimal("0.00")
     )
     margine_riga = db.Column(db.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
 

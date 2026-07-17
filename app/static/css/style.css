@@ -2588,7 +2588,8 @@ body:has(.movements-page) .main-content {
 
 .movements-type-badge.type-carico,
 .movements-type-badge.type-reso,
-.movements-type-badge.type-ripristino_annullo_vendita {
+.movements-type-badge.type-ripristino_annullo_vendita,
+.movements-type-badge.type-carico_da_confezione {
   background: #e5f3ea;
   border-color: #b8ddc5;
   color: #2b704a;
@@ -2597,7 +2598,8 @@ body:has(.movements-page) .main-content {
 .movements-type-badge.type-scarico_manuale,
 .movements-type-badge.type-scarico_vendita,
 .movements-type-badge.type-omaggio,
-.movements-type-badge.type-danneggiato {
+.movements-type-badge.type-danneggiato,
+.movements-type-badge.type-apertura_confezione {
   background: #f8e8e5;
   border-color: #ebc2bc;
   color: #9c4039;

@@ -172,6 +172,8 @@ def _aggiungi_giacenze_correnti(prodotti) -> None:
 
 
 def _salva_giacenza_corrente(prodotto: Product) -> None:
+    if prodotto.is_variante_singola:
+        return
     punto_vendita = punto_vendita_corrente()
     if not punto_vendita:
         return

@@ -83,6 +83,9 @@ def movimenti():
     filtri = request.args.to_dict()
     movimenti_data = query_movimenti(filtri, punto_vendita.id if punto_vendita else None).limit(200).all()
     prodotti = Product.query.filter_by(attivo=True).order_by(Product.nome.asc()).all()
+    prodotti_movimentabili = [
+        prodotto for prodotto in prodotti if not prodotto.is_variante_singola
+    ]
     _aggiungi_giacenze_correnti(prodotti, punto_vendita.id if punto_vendita else None)
     categorie = Category.query.order_by(Category.nome.asc()).all()
     tipi_movimento = [
@@ -97,6 +100,7 @@ def movimenti():
         "movements/list.html",
         movimenti=movimenti_data,
         prodotti=prodotti,
+        prodotti_movimentabili=prodotti_movimentabili,
         categorie=categorie,
         tipi_movimento=tipi_movimento,
         filtri=filtri,

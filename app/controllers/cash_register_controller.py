@@ -7,7 +7,7 @@ from sqlalchemy import case, func, or_
 from app.models import Brand, Category, Compatibility, Customer, Product, Sale
 from app.models.constants import METODI_PAGAMENTO
 from app.services.sale_service import crea_vendita
-from app.services.store_service import mappa_giacenze, punto_vendita_corrente
+from app.services.store_service import mappa_disponibilita_vendibile, punto_vendita_corrente
 from app.utils.parsers import to_int
 
 
@@ -53,10 +53,8 @@ def cassa():
         .limit(25)
         .all()
     )
-    giacenze = (
-        mappa_giacenze(punto_vendita.id, [p.id for p in prodotti_popolari])
-        if punto_vendita
-        else {}
+    disponibilita = mappa_disponibilita_vendibile(
+        punto_vendita.id if punto_vendita else None, prodotti_popolari
     )
     clienti = Customer.query.filter_by(attivo=True).order_by(Customer.nome.asc(), Customer.cognome.asc()).all()
     return render_template(
@@ -66,7 +64,7 @@ def cassa():
         prodotti_json=[
             _serialize_product(
                 product,
-                giacenze[product.id].quantita_disponibile if product.id in giacenze else 0,
+                disponibilita.get(product.id, 0),
             )
             for product in prodotti_popolari
         ],
@@ -104,13 +102,13 @@ def search_products():
         query = query.filter(Product.categoria_id == categoria_id_int)
 
     products = query.order_by(*_ordinamento_prodotti_cassa()).limit(40).all()
-    giacenze = (
-        mappa_giacenze(punto_vendita.id, [p.id for p in products]) if punto_vendita else {}
+    disponibilita = mappa_disponibilita_vendibile(
+        punto_vendita.id if punto_vendita else None, products
     )
     return jsonify([
         _serialize_product(
             product,
-            giacenze[product.id].quantita_disponibile if product.id in giacenze else 0,
+            disponibilita.get(product.id, 0),
         )
         for product in products
     ])

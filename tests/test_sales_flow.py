@@ -3,6 +3,8 @@ import pytest
 from app.extensions import db
 from app.models import Category, InventoryMovement, Product, Sale, StoreInventory, StoreLocation, User, VatRate
 from app.services.sale_service import annulla_vendita, crea_vendita
+from app.services.catalog_service import sync_varianti_singole
+from app.services.inventory_service import crea_movimento_manuale
 
 
 def test_sale_decrements_and_cancel_restores_stock(app):
@@ -56,6 +58,142 @@ def test_sale_cannot_exceed_available_stock(app):
                 sconto_valore=0,
                 metodo_pagamento="carta",
             )
+
+
+def test_single_sales_open_packages_only_when_needed(app):
+    with app.app_context():
+        operatore = User.query.filter_by(username="operatore").first()
+        sorgente = Product.query.filter_by(sku_barcode="TEST-001").one()
+        sync_varianti_singole()
+        singola = Product.query.filter_by(sku_barcode="TEST-001-SINGOLA").one()
+
+        prima = crea_vendita(
+            operatore_id=operatore.id,
+            items=[{"prodotto_id": singola.id, "quantita": 1}],
+            sconto_tipo="nessuno",
+            sconto_valore=0,
+            metodo_pagamento="contanti",
+        )
+        assert sorgente.quantita_disponibile == 19
+        assert singola.quantita_disponibile == 9
+        assert InventoryMovement.query.filter_by(
+            tipo_movimento="apertura_confezione",
+            riferimento_entita=f"vendita:{prima.id}",
+        ).one().quantita == -1
+        assert InventoryMovement.query.filter_by(
+            tipo_movimento="carico_da_confezione",
+            riferimento_entita=f"vendita:{prima.id}",
+        ).one().quantita == 10
+
+        crea_vendita(
+            operatore_id=operatore.id,
+            items=[{"prodotto_id": singola.id, "quantita": 9}],
+            sconto_tipo="nessuno",
+            sconto_valore=0,
+            metodo_pagamento="contanti",
+        )
+        assert sorgente.quantita_disponibile == 19
+        assert singola.quantita_disponibile == 0
+
+        terza = crea_vendita(
+            operatore_id=operatore.id,
+            items=[{"prodotto_id": singola.id, "quantita": 1}],
+            sconto_tipo="nessuno",
+            sconto_valore=0,
+            metodo_pagamento="contanti",
+        )
+        assert sorgente.quantita_disponibile == 18
+        assert singola.quantita_disponibile == 9
+
+        annulla_vendita(terza.id, operatore.id)
+        assert sorgente.quantita_disponibile == 18
+        assert singola.quantita_disponibile == 10
+
+
+def test_single_stock_cannot_be_manually_moved(app):
+    with app.app_context():
+        admin = User.query.filter_by(username="admin").one()
+        sync_varianti_singole()
+        singola = Product.query.filter_by(sku_barcode="TEST-001-SINGOLA").one()
+
+        with pytest.raises(ValueError, match="gestita automaticamente"):
+            crea_movimento_manuale(
+                prodotto_id=singola.id,
+                tipo_movimento="carico",
+                quantita=10,
+                operatore_id=admin.id,
+            )
+
+
+def test_single_package_opening_is_store_specific(app):
+    with app.app_context():
+        operatore = User.query.filter_by(username="operatore").one()
+        sorgente = Product.query.filter_by(sku_barcode="TEST-001").one()
+        pepoli = StoreLocation(
+            codice="single-pepoli",
+            nome="Pepoli singole",
+            indirizzo="Via Pepoli 1",
+            cap="91100",
+            comune="Trapani",
+            provincia="TP",
+            ragione_sociale="Test Pepoli",
+            partita_iva="00000000011",
+        )
+        vespri = StoreLocation(
+            codice="single-vespri",
+            nome="Vespri singole",
+            indirizzo="Via Vespri 1",
+            cap="91019",
+            comune="Valderice",
+            provincia="TP",
+            ragione_sociale="Test Vespri",
+            partita_iva="00000000012",
+        )
+        db.session.add_all([pepoli, vespri])
+        db.session.flush()
+        db.session.add_all(
+            [
+                StoreInventory(
+                    punto_vendita_id=pepoli.id,
+                    prodotto_id=sorgente.id,
+                    quantita_disponibile=2,
+                    quantita_minima_alert=0,
+                ),
+                StoreInventory(
+                    punto_vendita_id=vespri.id,
+                    prodotto_id=sorgente.id,
+                    quantita_disponibile=3,
+                    quantita_minima_alert=0,
+                ),
+            ]
+        )
+        db.session.commit()
+        sync_varianti_singole()
+        singola = Product.query.filter_by(sku_barcode="TEST-001-SINGOLA").one()
+
+        crea_vendita(
+            operatore_id=operatore.id,
+            punto_vendita_id=pepoli.id,
+            items=[{"prodotto_id": singola.id, "quantita": 4}],
+            sconto_tipo="nessuno",
+            sconto_valore=0,
+            metodo_pagamento="contanti",
+        )
+
+        pepoli_pack = StoreInventory.query.filter_by(
+            punto_vendita_id=pepoli.id, prodotto_id=sorgente.id
+        ).one()
+        pepoli_single = StoreInventory.query.filter_by(
+            punto_vendita_id=pepoli.id, prodotto_id=singola.id
+        ).one()
+        vespri_pack = StoreInventory.query.filter_by(
+            punto_vendita_id=vespri.id, prodotto_id=sorgente.id
+        ).one()
+        vespri_single = StoreInventory.query.filter_by(
+            punto_vendita_id=vespri.id, prodotto_id=singola.id
+        ).one()
+        assert (pepoli_pack.quantita_disponibile, pepoli_single.quantita_disponibile) == (1, 6)
+        assert (vespri_pack.quantita_disponibile, vespri_single.quantita_disponibile) == (3, 0)
 
 
 def test_store_inventory_is_separate(app):

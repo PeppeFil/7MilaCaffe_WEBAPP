@@ -9,7 +9,9 @@
   'reso': 'Reso',
   'omaggio': 'Omaggio',
   'danneggiato': 'Prodotto danneggiato',
-  'ripristino_annullo_vendita': 'Ripristino vendita annullata'
+  'ripristino_annullo_vendita': 'Ripristino vendita annullata',
+  'apertura_confezione': 'Confezione aperta automaticamente',
+  'carico_da_confezione': 'Singole da confezione'
 } %}
 {% set movement_icons = {
   'carico': 'bi-box-arrow-in-down',
@@ -19,7 +21,9 @@
   'reso': 'bi-arrow-counterclockwise',
   'omaggio': 'bi-gift',
   'danneggiato': 'bi-exclamation-diamond',
-  'ripristino_annullo_vendita': 'bi-arrow-repeat'
+  'ripristino_annullo_vendita': 'bi-arrow-repeat',
+  'apertura_confezione': 'bi-box-arrow-up',
+  'carico_da_confezione': 'bi-box-seam'
 } %}
 
 <section class="movements-page" aria-labelledby="movementsTitle">
@@ -90,7 +94,7 @@
         <span>Tipo</span>
         <select class="form-select" id="movementTypeFilter">
           <option value="">Tutti i tipi</option>
-          {% for code in ['carico', 'scarico_manuale', 'scarico_vendita', 'rettifica', 'reso', 'omaggio', 'danneggiato', 'ripristino_annullo_vendita'] %}
+          {% for code in ['carico', 'scarico_manuale', 'scarico_vendita', 'rettifica', 'reso', 'omaggio', 'danneggiato', 'ripristino_annullo_vendita', 'apertura_confezione', 'carico_da_confezione'] %}
             <option value="{{ code }}" {% if filtri.get('tipo') == code %}selected{% endif %}>{{ movement_labels.get(code, code|replace('_', ' ')|title) }}</option>
           {% endfor %}
         </select>
@@ -285,7 +289,7 @@
         <span>Prodotto</span>
         <select name="prodotto_id" class="form-select" required>
           <option value="">Seleziona un prodotto</option>
-          {% for p in prodotti %}
+          {% for p in prodotti_movimentabili %}
             <option value="{{ p.id }}" {% if filtri.get('prodotto_id') == (p.id|string) %}selected{% endif %}>{{ p.nome }} · Disponibili {{ p.giacenza_corrente }} pz</option>
           {% endfor %}
         </select>

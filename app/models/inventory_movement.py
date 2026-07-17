@@ -17,7 +17,7 @@ class InventoryMovement(db.Model):
     prodotto_id = db.Column(db.Integer, db.ForeignKey("products.id"), nullable=False)
     quantita = db.Column(db.Integer, nullable=False)
     motivo = db.Column(db.String(255))
-    costo_unitario = db.Column(db.Numeric(10, 2), default=Decimal("0.00"))
+    costo_unitario = db.Column(db.Numeric(14, 6), default=Decimal("0.00"))
     operatore_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     punto_vendita_id = db.Column(
         db.Integer, db.ForeignKey("store_locations.id"), nullable=True, index=True

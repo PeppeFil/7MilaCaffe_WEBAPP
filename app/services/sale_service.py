@@ -1,19 +1,120 @@
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from collections import defaultdict
 
-from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import joinedload, lazyload
 
 from app.extensions import db
-from app.models import Customer, Product, Sale, SaleItem
+from app.models import Customer, Product, Sale, SaleItem, StoreInventory
 from app.services.audit_service import registra_attivita
-from app.services.inventory_service import registra_movimento
-from app.services.store_service import quantita_disponibile
+from app.services.inventory_service import apri_confezioni_necessarie, registra_movimento
+from app.services.store_service import (
+    giacenza_o_crea,
+    quantita_disponibile,
+    quantita_fisica,
+)
 from app.utils.parsers import to_decimal, to_int
 from app.utils.timezones import utc_now_naive
 from app.utils.timezones import ROME_TIMEZONE
 
 
 MONEY = Decimal("0.01")
+
+
+def _carica_e_blocca_prodotti(
+    items: list[dict], punto_vendita_id: int | None
+) -> list[tuple[Product, int]]:
+    """Valida il carrello e blocca le righe stock in ordine deterministico."""
+    righe_input: list[tuple[int, int]] = []
+    richieste = defaultdict(int)
+    for item in items:
+        prodotto_id = to_int(item.get("prodotto_id"))
+        quantita = to_int(item.get("quantita"))
+        if not prodotto_id or quantita <= 0:
+            raise ValueError("Quantità riga non valida.")
+        righe_input.append((prodotto_id, quantita))
+        richieste[prodotto_id] += quantita
+
+    prodotti = (
+        Product.query.filter(Product.id.in_(richieste), Product.attivo.is_(True))
+        .order_by(Product.id.asc())
+        .all()
+    )
+    product_map = {prodotto.id: prodotto for prodotto in prodotti}
+    missing = set(richieste) - set(product_map)
+    if missing:
+        raise ValueError(f"Prodotto ID {min(missing)} non trovato o non attivo.")
+
+    stock_ids = set(richieste)
+    stock_ids.update(
+        prodotto.confezione_origine_id
+        for prodotto in prodotti
+        if prodotto.confezione_origine_id
+    )
+    if punto_vendita_id is None:
+        locked_products = (
+            Product.query.options(lazyload("*"))
+            .filter(Product.id.in_(stock_ids))
+            .order_by(Product.id.asc())
+            .populate_existing()
+            .with_for_update()
+            .all()
+        )
+        locked_map = {prodotto.id: prodotto for prodotto in locked_products}
+        product_map.update(
+            {product_id: locked_map[product_id] for product_id in richieste}
+        )
+    else:
+        for product_id in sorted(stock_ids):
+            prodotto = product_map.get(product_id) or db.session.get(Product, product_id)
+            if prodotto:
+                giacenza_o_crea(prodotto, punto_vendita_id)
+        db.session.flush()
+        (
+            StoreInventory.query.options(lazyload("*"))
+            .filter(
+                StoreInventory.punto_vendita_id == punto_vendita_id,
+                StoreInventory.prodotto_id.in_(stock_ids),
+            )
+            .order_by(StoreInventory.prodotto_id.asc())
+            .populate_existing()
+            .with_for_update()
+            .all()
+        )
+
+    for product_id, quantita in richieste.items():
+        prodotto = product_map[product_id]
+        disponibile = quantita_disponibile(prodotto, punto_vendita_id)
+        if disponibile < quantita:
+            raise ValueError(
+                f"Stock insufficiente per {prodotto.nome}. "
+                f"Disponibile: {disponibile}"
+            )
+
+    # Un carrello può contenere sia una confezione sia le sue singole: validiamo
+    # congiuntamente la risorsa fisica condivisa prima di creare la vendita.
+    confezioni_richieste = defaultdict(int)
+    for product_id, quantita in richieste.items():
+        prodotto = product_map[product_id]
+        if prodotto.confezione_origine_id:
+            singole_fisiche = quantita_fisica(prodotto, punto_vendita_id)
+            deficit = max(0, quantita - singole_fisiche)
+            confezioni_richieste[prodotto.confezione_origine_id] += (
+                deficit + prodotto.unita_per_confezione - 1
+            ) // prodotto.unita_per_confezione
+        else:
+            confezioni_richieste[prodotto.id] += quantita
+
+    for source_id, quantita in confezioni_richieste.items():
+        source = product_map.get(source_id) or db.session.get(Product, source_id)
+        disponibile = quantita_fisica(source, punto_vendita_id) if source else 0
+        if disponibile < quantita:
+            raise ValueError(
+                f"Stock confezioni insufficiente per {source.nome if source else source_id}. "
+                f"Disponibile: {disponibile}"
+            )
+
+    return [(product_map[product_id], qty) for product_id, qty in righe_input]
 
 
 def crea_vendita(
@@ -31,26 +132,13 @@ def crea_vendita(
     if not items:
         raise ValueError("Il carrello è vuoto.")
 
+    righe_input = _carica_e_blocca_prodotti(items, punto_vendita_id)
+
     totale_lordo = Decimal("0.00")
     margine_totale = Decimal("0.00")
     righe_calcolate = []
 
-    for item in items:
-        prodotto_id = to_int(item.get("prodotto_id"))
-        quantita = to_int(item.get("quantita"))
-        if quantita <= 0:
-            raise ValueError("Quantità riga non valida.")
-
-        prodotto = Product.query.filter_by(id=prodotto_id, attivo=True).first()
-        if not prodotto:
-            raise ValueError(f"Prodotto ID {prodotto_id} non trovato o non attivo.")
-        disponibile = quantita_disponibile(prodotto, punto_vendita_id)
-        if disponibile < quantita:
-            raise ValueError(
-                f"Stock insufficiente per {prodotto.nome}. "
-                f"Disponibile: {disponibile}"
-            )
-
+    for prodotto, quantita in righe_input:
         if not prodotto.vat_rate or not prodotto.vat_rate.attiva:
             raise ValueError(f"Aliquota IVA mancante o non attiva per {prodotto.nome}.")
 
@@ -160,6 +248,15 @@ def crea_vendita(
             margine_riga=r["margine_riga"],
         )
         db.session.add(item)
+
+        apri_confezioni_necessarie(
+            prodotto=r["prodotto"],
+            quantita_richiesta=r["quantita"],
+            operatore_id=operatore_id,
+            riferimento_entita=f"vendita:{vendita.id}",
+            data_ora=vendita.data_ora,
+            punto_vendita_id=punto_vendita_id,
+        )
 
         registra_movimento(
             prodotto=r["prodotto"],

@@ -4,7 +4,7 @@ from decimal import Decimal
 from app.extensions import db
 from app.models import InventoryMovement, Product
 from app.services.audit_service import registra_attivita
-from app.services.store_service import giacenza_o_crea
+from app.services.store_service import giacenza_o_crea, quantita_fisica
 from app.utils.parsers import to_int
 from app.utils.timezones import utc_now_naive
 
@@ -18,7 +18,73 @@ MOVEMENT_DIRECTIONS = {
     "omaggio": -1,
     "danneggiato": -1,
     "ripristino_annullo_vendita": 1,
+    "apertura_confezione": -1,
+    "carico_da_confezione": 1,
 }
+
+
+def apri_confezioni_necessarie(
+    prodotto: Product,
+    quantita_richiesta: int,
+    operatore_id: int,
+    riferimento_entita: str,
+    punto_vendita_id: int | None = None,
+    data_ora: datetime | None = None,
+) -> int:
+    """Apre solo le confezioni indispensabili a coprire una vendita di singole."""
+    if not prodotto.confezione_origine_id:
+        return 0
+    if not prodotto.unita_per_confezione or prodotto.unita_per_confezione <= 0:
+        raise ValueError(f"Formato confezione non valido per {prodotto.nome}.")
+
+    singole_disponibili = quantita_fisica(prodotto, punto_vendita_id)
+    deficit = quantita_richiesta - singole_disponibili
+    if deficit <= 0:
+        return 0
+
+    confezioni_da_aprire = (
+        deficit + prodotto.unita_per_confezione - 1
+    ) // prodotto.unita_per_confezione
+    confezione = prodotto.confezione_origine or db.session.get(
+        Product, prodotto.confezione_origine_id
+    )
+    if not confezione:
+        raise ValueError(f"Confezione origine mancante per {prodotto.nome}.")
+    confezioni_disponibili = quantita_fisica(confezione, punto_vendita_id)
+    if confezioni_disponibili < confezioni_da_aprire:
+        disponibilita_totale = singole_disponibili + (
+            confezioni_disponibili * prodotto.unita_per_confezione
+        )
+        raise ValueError(
+            f"Stock insufficiente per {prodotto.nome}. "
+            f"Disponibile: {disponibilita_totale}"
+        )
+
+    motivo = (
+        f"Apertura automatica di {confezioni_da_aprire} confezione/i "
+        f"da {prodotto.unita_per_confezione} unita"
+    )
+    registra_movimento(
+        prodotto=confezione,
+        tipo_movimento="apertura_confezione",
+        quantita=confezioni_da_aprire,
+        operatore_id=operatore_id,
+        motivo=motivo,
+        riferimento_entita=riferimento_entita,
+        data_ora=data_ora,
+        punto_vendita_id=punto_vendita_id,
+    )
+    registra_movimento(
+        prodotto=prodotto,
+        tipo_movimento="carico_da_confezione",
+        quantita=confezioni_da_aprire * prodotto.unita_per_confezione,
+        operatore_id=operatore_id,
+        motivo=motivo,
+        riferimento_entita=riferimento_entita,
+        data_ora=data_ora,
+        punto_vendita_id=punto_vendita_id,
+    )
+    return confezioni_da_aprire
 
 
 def registra_movimento(
@@ -92,6 +158,10 @@ def crea_movimento_manuale(
     punto_vendita_id: int | None = None,
 ) -> InventoryMovement:
     prodotto = Product.query.get_or_404(prodotto_id)
+    if prodotto.is_variante_singola:
+        raise ValueError(
+            "La giacenza delle singole e gestita automaticamente aprendo le confezioni."
+        )
     movimento = registra_movimento(
         prodotto=prodotto,
         tipo_movimento=tipo_movimento,
