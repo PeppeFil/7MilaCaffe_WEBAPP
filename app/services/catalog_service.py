@@ -308,9 +308,12 @@ def _unita_per_confezione(formato: str | None) -> int | None:
 
 
 def _sku_singola(prodotto: Product) -> str:
-    if prodotto.sku_barcode:
+    sku_sorgente = (prodotto.sku_barcode or "").strip()
+    if sku_sorgente.casefold() in {"none", "null"}:
+        sku_sorgente = ""
+    if sku_sorgente:
         # Il campo SKU ammette 80 caratteri; conserviamo il suffisso identificativo.
-        return f"{prodotto.sku_barcode[: 80 - len(SINGLE_SKU_SUFFIX)]}{SINGLE_SKU_SUFFIX}"
+        return f"{sku_sorgente[: 80 - len(SINGLE_SKU_SUFFIX)]}{SINGLE_SKU_SUFFIX}"
     return f"SINGOLA-{prodotto.id}"
 
 

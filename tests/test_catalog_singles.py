@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from app.extensions import db
 from app.models import Brand, Category, Product
-from app.services.catalog_service import sync_varianti_singole
+from app.services.catalog_service import _sku_singola, sync_varianti_singole
 
 
 def test_sync_varianti_singole_calculates_unit_prices_and_is_idempotent(app):
@@ -64,3 +64,10 @@ def test_cash_order_prioritizes_borbone_then_lollo(app):
             "Lollo",
             "Zeta",
         ]
+
+
+def test_single_sku_treats_text_none_as_missing(app):
+    with app.app_context():
+        prodotto = Product.query.filter_by(sku_barcode="TEST-001").one()
+        prodotto.sku_barcode = "None"
+        assert _sku_singola(prodotto) == f"SINGOLA-{prodotto.id}"
