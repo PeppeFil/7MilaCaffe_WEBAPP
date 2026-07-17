@@ -19,11 +19,28 @@ const cartPayload = document.getElementById("cartPayload");
 const customerCheckoutModalElement = document.getElementById("customerCheckoutModal");
 const customerCheckoutModal = new bootstrap.Modal(customerCheckoutModalElement);
 const customerSearch = document.getElementById("checkoutCustomerSearch");
-const customerChoices = Array.from(document.querySelectorAll(".customer-choice"));
+const checkoutCustomerList = document.getElementById("checkoutCustomerList");
 const customerNoResults = document.getElementById("customerNoResults");
 const checkoutConfirmButton = document.getElementById("checkoutConfirmButton");
+const customerSelectionPanel = document.getElementById("customerSelectionPanel");
+const customerSelectionFooter = document.getElementById("customerSelectionFooter");
+const customerCreationFooter = document.getElementById("customerCreationFooter");
+const newCustomerForm = document.getElementById("checkoutNewCustomerForm");
+const newCustomerError = document.getElementById("checkoutCustomerFormError");
+const showNewCustomerButton = document.getElementById("showNewCustomerButton");
+const cancelNewCustomerButton = document.getElementById("cancelNewCustomerButton");
+const saveNewCustomerButton = document.getElementById("saveNewCustomerButton");
+const singleQuantityModalElement = document.getElementById("singleQuantityModal");
+const singleQuantityModal = new bootstrap.Modal(singleQuantityModalElement);
+const singleQuantityImage = document.getElementById("singleQuantityImage");
+const singleQuantityProductName = document.getElementById("singleQuantityProductName");
+const singleQuantityStock = document.getElementById("singleQuantityStock");
+const singleQuantityInput = document.getElementById("singleQuantityInput");
+const singleQuantityError = document.getElementById("singleQuantityError");
+const singleQuantityConfirm = document.getElementById("singleQuantityConfirm");
 let debounceTimer = null;
 let activeRequest = null;
+let selectedSingleProductId = null;
 
 function euro(value) {
   return new Intl.NumberFormat("it-IT", {
@@ -47,6 +64,16 @@ function productImage(product, className = "product-image") {
     return `<div class="${className}-fallback" aria-hidden="true"><i class="bi bi-cup-hot"></i></div>`;
   }
   return `<img class="${className}" src="${escapeHtml(product.immagine_url)}" alt="Foto ${name}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'), {className:'${className}-fallback', textContent:'☕'}))">`;
+}
+
+function isSingleProduct(product) {
+  return Boolean(product?.is_variante_singola)
+    || String(product?.categoria || "").toLocaleLowerCase("it") === "singole";
+}
+
+function usesQuickSingleQuantity(product) {
+  return isSingleProduct(product)
+    && String(product?.formato_confezione || "").toLocaleLowerCase("it").includes("cialda");
 }
 
 function setGridBusy(isBusy) {
@@ -117,6 +144,13 @@ function quantityMarkup(product, quantity) {
   if (stock <= 0) {
     return `<button type="button" class="product-add" disabled aria-label="${escapeHtml(product.nome)} esaurito"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>`;
   }
+  if (usesQuickSingleQuantity(product)) {
+    return `
+      <button type="button" class="product-add product-quick-quantity" data-product-action="set-single" data-product-id="${productId}" aria-label="Scegli quantità di ${escapeHtml(product.nome)}">
+        ${quantity ? `<strong>${quantity}</strong>` : "Qtà"}
+        <i class="bi bi-calculator" aria-hidden="true"></i>
+      </button>`;
+  }
   if (!quantity) {
     return `<button type="button" class="product-add" data-product-action="add" data-product-id="${productId}" aria-label="Aggiungi ${escapeHtml(product.nome)}"><i class="bi bi-plus-lg" aria-hidden="true"></i></button>`;
   }
@@ -184,9 +218,52 @@ window.addToCart = function addToCart(productId) {
     prezzo_unitario: Number(product.prezzo_vendita),
     quantita: currentQty + 1,
     quantita_disponibile: stock,
+    is_variante_singola: isSingleProduct(product),
   };
   renderCart();
 };
+
+function setCartQuantity(productId, quantity) {
+  const product = state.products.find((item) => Number(item.id) === Number(productId))
+    || state.cart[productId];
+  if (!product) return false;
+  const stock = Number(product.quantita_disponibile) || 0;
+  const next = Math.trunc(Number(quantity));
+  if (!Number.isFinite(next) || next < 1 || next > stock) return false;
+  state.cart[productId] = {
+    prodotto_id: Number(product.id || product.prodotto_id),
+    nome: product.nome,
+    marca: product.marca,
+    formato_confezione: product.formato_confezione || "",
+    immagine_url: product.immagine_url || "",
+    prezzo_unitario: Number(product.prezzo_vendita ?? product.prezzo_unitario),
+    quantita: next,
+    quantita_disponibile: stock,
+    is_variante_singola: true,
+  };
+  renderCart();
+  return true;
+}
+
+function openSingleQuantity(productId) {
+  const product = state.products.find((item) => Number(item.id) === Number(productId))
+    || state.cart[productId];
+  if (!product || !usesQuickSingleQuantity(product)) return;
+  const stock = Number(product.quantita_disponibile) || 0;
+  if (stock <= 0) return;
+  selectedSingleProductId = Number(productId);
+  singleQuantityProductName.textContent = product.nome;
+  singleQuantityStock.textContent = `${stock} singole disponibili`;
+  singleQuantityImage.innerHTML = productImage(product, "single-quantity-product-image");
+  singleQuantityInput.max = String(stock);
+  singleQuantityInput.value = String(state.cart[productId]?.quantita || 1);
+  singleQuantityError.hidden = true;
+  document.querySelectorAll("[data-single-quantity]").forEach((button) => {
+    button.disabled = Number(button.dataset.singleQuantity) > stock;
+  });
+  singleQuantityModal.show();
+  window.setTimeout(() => singleQuantityInput.select(), 150);
+}
 
 window.changeCartQty = function changeCartQty(productId, delta) {
   const row = state.cart[productId];
@@ -203,6 +280,24 @@ window.removeCartItem = function removeCartItem(productId) {
   renderCart();
 };
 
+function cartQuantityMarkup(row) {
+  const productId = Number(row.prodotto_id);
+  if (usesQuickSingleQuantity(row)) {
+    return `
+      <button type="button" class="quantity-control single-cart-quantity" data-cart-action="set-single" data-product-id="${productId}" aria-label="Modifica quantità di ${escapeHtml(row.nome)}">
+        <span>${Number(row.quantita)}</span>
+        <small>Modifica</small>
+        <i class="bi bi-pencil-square" aria-hidden="true"></i>
+      </button>`;
+  }
+  return `
+    <div class="quantity-control">
+      <button type="button" data-cart-action="decrease" data-product-id="${productId}" aria-label="Riduci quantità di ${escapeHtml(row.nome)}">−</button>
+      <span>${Number(row.quantita)}</span>
+      <button type="button" data-cart-action="increase" data-product-id="${productId}" aria-label="Aumenta quantità di ${escapeHtml(row.nome)}" ${row.quantita >= row.quantita_disponibile ? "disabled" : ""}>+</button>
+    </div>`;
+}
+
 function renderCart() {
   const rows = Object.values(state.cart);
   emptyCartMsg.hidden = Boolean(rows.length);
@@ -217,11 +312,7 @@ function renderCart() {
         <small>${escapeHtml(row.formato_confezione || row.marca || "")}</small>
       </div>
       <button type="button" class="cart-remove" data-cart-action="remove" data-product-id="${Number(row.prodotto_id)}" aria-label="Rimuovi ${escapeHtml(row.nome)} dal carrello"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
-      <div class="quantity-control">
-        <button type="button" data-cart-action="decrease" data-product-id="${Number(row.prodotto_id)}" aria-label="Riduci quantità di ${escapeHtml(row.nome)}">−</button>
-        <span>${Number(row.quantita)}</span>
-        <button type="button" data-cart-action="increase" data-product-id="${Number(row.prodotto_id)}" aria-label="Aumenta quantità di ${escapeHtml(row.nome)}" ${row.quantita >= row.quantita_disponibile ? "disabled" : ""}>+</button>
-      </div>
+      ${cartQuantityMarkup(row)}
       <strong class="cart-line-total">${euro(row.prezzo_unitario * row.quantita)}</strong>
     </div>`).join("");
 
@@ -251,13 +342,17 @@ productGrid.addEventListener("click", (event) => {
     event.stopPropagation();
     const productId = Number(actionButton.dataset.productId);
     if (actionButton.dataset.productAction === "decrease") changeCartQty(productId, -1);
+    else if (actionButton.dataset.productAction === "set-single") openSingleQuantity(productId);
     else addToCart(productId);
     return;
   }
 
   const card = event.target.closest("[data-product-card]");
   if (card && !card.classList.contains("is-out-of-stock")) {
-    addToCart(Number(card.dataset.productCard));
+    const productId = Number(card.dataset.productCard);
+    const product = state.products.find((item) => Number(item.id) === productId);
+    if (usesQuickSingleQuantity(product)) openSingleQuantity(productId);
+    else addToCart(productId);
   }
 });
 
@@ -265,7 +360,10 @@ productGrid.addEventListener("keydown", (event) => {
   const card = event.target.closest("[data-product-card]");
   if (!card || event.target !== card || !["Enter", " "].includes(event.key)) return;
   event.preventDefault();
-  addToCart(Number(card.dataset.productCard));
+  const productId = Number(card.dataset.productCard);
+  const product = state.products.find((item) => Number(item.id) === productId);
+  if (usesQuickSingleQuantity(product)) openSingleQuantity(productId);
+  else addToCart(productId);
 });
 
 cartBody.addEventListener("click", (event) => {
@@ -273,7 +371,33 @@ cartBody.addEventListener("click", (event) => {
   if (!button) return;
   const productId = Number(button.dataset.productId);
   if (button.dataset.cartAction === "remove") removeCartItem(productId);
+  else if (button.dataset.cartAction === "set-single") openSingleQuantity(productId);
   else changeCartQty(productId, button.dataset.cartAction === "increase" ? 1 : -1);
+});
+
+document.querySelectorAll("[data-single-quantity]").forEach((button) => {
+  button.addEventListener("click", () => {
+    singleQuantityInput.value = button.dataset.singleQuantity;
+    singleQuantityError.hidden = true;
+  });
+});
+
+singleQuantityConfirm.addEventListener("click", () => {
+  if (selectedSingleProductId === null) return;
+  if (!setCartQuantity(selectedSingleProductId, singleQuantityInput.value)) {
+    singleQuantityError.textContent = `Inserisci una quantità tra 1 e ${singleQuantityInput.max}.`;
+    singleQuantityError.hidden = false;
+    singleQuantityInput.focus();
+    return;
+  }
+  singleQuantityModal.hide();
+});
+
+singleQuantityInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    singleQuantityConfirm.click();
+  }
 });
 
 checkoutForm.addEventListener("submit", (event) => {
@@ -295,35 +419,114 @@ checkoutForm.addEventListener("submit", (event) => {
   });
 });
 
+function customerChoices() {
+  return Array.from(checkoutCustomerList.querySelectorAll(".customer-choice"));
+}
+
+function showCustomerSelection() {
+  customerSelectionPanel.hidden = false;
+  customerSelectionFooter.hidden = false;
+  newCustomerForm.hidden = true;
+  customerCreationFooter.hidden = true;
+  newCustomerError.hidden = true;
+}
+
+function showCustomerCreation() {
+  customerSelectionPanel.hidden = true;
+  customerSelectionFooter.hidden = true;
+  newCustomerForm.hidden = false;
+  customerCreationFooter.hidden = false;
+  newCustomerError.hidden = true;
+  document.getElementById("cashCustomerName").focus();
+}
+
+function selectCustomerChoice(choice) {
+  customerId.value = choice.dataset.customerId || "";
+  customerChoices().forEach((item) => item.classList.toggle("is-selected", item === choice));
+}
+
+function newCustomerChoiceMarkup(cliente) {
+  const contact = cliente.telefono || cliente.email || "Nessun contatto";
+  const fiscal = cliente.partita_iva
+    ? ` · P.IVA ${escapeHtml(cliente.partita_iva)}`
+    : (cliente.codice_fiscale ? ` · CF ${escapeHtml(cliente.codice_fiscale)}` : "");
+  const search = [
+    cliente.display_name,
+    cliente.telefono,
+    cliente.email,
+    cliente.codice_fiscale,
+    cliente.partita_iva,
+  ].filter(Boolean).join(" ").toLocaleLowerCase("it");
+  return `
+    <button type="button" class="customer-choice" data-customer-id="${Number(cliente.id)}" data-customer-search="${escapeHtml(search)}">
+      <span class="customer-choice-icon"><i class="bi bi-person-vcard"></i></span>
+      <span><strong>${escapeHtml(cliente.display_name)}</strong><small>${escapeHtml(contact)}${fiscal}</small></span>
+      <i class="bi bi-check-circle-fill customer-choice-check"></i>
+    </button>`;
+}
+
 checkoutButton.addEventListener("click", () => {
   if (!Object.keys(state.cart).length) return;
   customerId.value = "";
   customerSearch.value = "";
-  customerChoices.forEach((choice) => {
+  customerChoices().forEach((choice) => {
     choice.hidden = false;
     choice.classList.toggle("is-selected", choice.dataset.customerId === "");
   });
   customerNoResults.hidden = true;
+  newCustomerForm.reset();
+  showCustomerSelection();
   customerCheckoutModal.show();
   customerSearch.focus();
 });
 
-customerChoices.forEach((choice) => {
-  choice.addEventListener("click", () => {
-    customerId.value = choice.dataset.customerId || "";
-    customerChoices.forEach((item) => item.classList.toggle("is-selected", item === choice));
-  });
+checkoutCustomerList.addEventListener("click", (event) => {
+  const choice = event.target.closest(".customer-choice");
+  if (choice) selectCustomerChoice(choice);
 });
 
 customerSearch.addEventListener("input", () => {
   const query = customerSearch.value.trim().toLocaleLowerCase("it");
   let visible = 0;
-  customerChoices.forEach((choice) => {
+  customerChoices().forEach((choice) => {
     const matches = !query || choice.dataset.customerSearch.includes(query);
     choice.hidden = !matches;
     if (matches) visible += 1;
   });
   customerNoResults.hidden = visible !== 0;
+});
+
+showNewCustomerButton.addEventListener("click", showCustomerCreation);
+cancelNewCustomerButton.addEventListener("click", showCustomerSelection);
+
+newCustomerForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  newCustomerError.hidden = true;
+  saveNewCustomerButton.disabled = true;
+  const originalLabel = saveNewCustomerButton.innerHTML;
+  saveNewCustomerButton.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Salvataggio';
+  try {
+    const response = await fetch("/cassa/clienti", {
+      method: "POST",
+      body: new FormData(newCustomerForm),
+      headers: { Accept: "application/json" },
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Impossibile salvare il cliente.");
+    checkoutCustomerList.insertAdjacentHTML("beforeend", newCustomerChoiceMarkup(data));
+    const choice = checkoutCustomerList.querySelector(`[data-customer-id="${Number(data.id)}"]`);
+    selectCustomerChoice(choice);
+    customerSearch.value = "";
+    customerChoices().forEach((item) => { item.hidden = false; });
+    customerNoResults.hidden = true;
+    showCustomerSelection();
+  } catch (error) {
+    newCustomerError.textContent = error.message;
+    newCustomerError.hidden = false;
+  } finally {
+    saveNewCustomerButton.disabled = false;
+    saveNewCustomerButton.innerHTML = originalLabel;
+  }
 });
 
 checkoutConfirmButton.addEventListener("click", () => {

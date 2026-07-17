@@ -1,7 +1,8 @@
 from sqlalchemy import event
 
 from app.extensions import db
-from app.models import Product, StoreInventory, StoreLocation, User
+from app.models import Category, Customer, Product, StoreInventory, StoreLocation, User
+from app.services.catalog_service import sync_varianti_singole
 from tests.helpers import get_csrf_token, login
 
 
@@ -137,8 +138,52 @@ def test_cash_page_uses_simple_product_tiles(client):
     assert b'Cerca un prodotto o leggi il barcode' in response.data
     assert b"Completa vendita" in response.data
     assert b'id="customerCheckoutModal"' in response.data
+    assert b'id="checkoutNewCustomerForm"' in response.data
+    assert b'id="singleQuantityModal"' in response.data
     assert b"Cliente generico" in response.data
     assert b'id="vatRateId"' not in response.data
+
+
+def test_cash_all_excludes_singles_but_singles_category_returns_them(app, client):
+    with app.app_context():
+        sync_varianti_singole()
+        singola = Product.query.filter_by(sku_barcode="TEST-001-SINGOLA").one()
+        singola.quantita_disponibile = 7
+        categoria_singole = Category.query.filter_by(nome="Singole").one()
+        singola_id = singola.id
+        categoria_id = categoria_singole.id
+        db.session.commit()
+
+    login(client, "operatore", "operator123")
+
+    tutti = client.get("/cassa/search").get_json()
+    assert all(not prodotto["is_variante_singola"] for prodotto in tutti)
+    assert singola_id not in {prodotto["id"] for prodotto in tutti}
+
+    singole = client.get(f"/cassa/search?categoria_id={categoria_id}").get_json()
+    assert {prodotto["id"] for prodotto in singole} == {singola_id}
+    assert singole[0]["is_variante_singola"] is True
+
+
+def test_checkout_can_create_customer_without_leaving_cash_register(app, client):
+    login(client, "operatore", "operator123")
+
+    response = client.post(
+        "/cassa/clienti",
+        data={
+            "csrf_token": get_csrf_token(client, "/cassa"),
+            "nome": "Cliente",
+            "cognome": "Cassa",
+            "telefono": "3331234567",
+            "attivo": "1",
+        },
+        headers={"Accept": "application/json"},
+    )
+
+    assert response.status_code == 201
+    assert response.get_json()["display_name"] == "Cliente Cassa"
+    with app.app_context():
+        assert Customer.query.filter_by(nome="Cliente", cognome="Cassa").count() == 1
 
 
 def test_cash_page_does_not_eager_load_unrelated_collections(app, client):

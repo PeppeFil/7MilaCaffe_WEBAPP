@@ -3311,6 +3311,18 @@ body:has(.movements-page) .main-content {
   margin-left: auto;
 }
 
+.product-quick-quantity {
+  display: flex;
+  width: auto;
+  min-width: 58px;
+  gap: 0.35rem;
+  padding: 0 0.6rem;
+}
+
+.product-quick-quantity strong {
+  font-size: 0.82rem;
+}
+
 .product-add:hover,
 .product-quantity button:hover {
   background: var(--coffee-700);
@@ -3566,6 +3578,28 @@ body:has(.movements-page) .main-content {
   text-align: center;
 }
 
+.single-cart-quantity {
+  display: grid;
+  grid-template-columns: auto auto 16px;
+  gap: 0.35rem;
+  min-height: 36px;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid rgba(217, 166, 111, 0.72);
+  background: rgba(154, 104, 71, 0.3);
+  color: #fff;
+  cursor: pointer;
+}
+
+.single-cart-quantity span {
+  min-width: 0;
+  font-weight: 800;
+}
+
+.single-cart-quantity small {
+  color: #e9c9aa;
+  font-size: 0.68rem;
+}
+
 .cart-line-total {
   justify-self: end;
   font-size: 0.95rem;
@@ -3732,6 +3766,170 @@ body:has(.movements-page) .main-content {
   margin: 1rem 0 0;
   color: #cfbba8;
   text-align: center;
+}
+
+.checkout-new-customer .form-label {
+  margin-bottom: 0.28rem;
+  color: #e9c9aa;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+#customerSelectionPanel[hidden],
+#customerSelectionFooter[hidden],
+#checkoutNewCustomerForm[hidden],
+#customerCreationFooter[hidden],
+#checkoutCustomerFormError[hidden],
+#singleQuantityError[hidden] {
+  display: none !important;
+}
+
+.checkout-new-customer .form-control {
+  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.checkout-new-customer .form-control:focus {
+  border-color: #d9a66f;
+  box-shadow: 0 0 0 3px rgba(217, 166, 111, 0.2);
+}
+
+.checkout-customer-form-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 1rem;
+  padding: 0.8rem;
+  border: 1px solid rgba(217, 166, 111, 0.3);
+  border-radius: 10px;
+  background: rgba(154, 104, 71, 0.18);
+}
+
+.checkout-customer-form-heading > i {
+  color: #e9c9aa;
+  font-size: 1.6rem;
+}
+
+.checkout-customer-form-heading strong,
+.checkout-customer-form-heading span {
+  display: block;
+}
+
+.checkout-customer-form-heading span {
+  margin-top: 0.15rem;
+  color: #cfbba8;
+  font-size: 0.78rem;
+}
+
+.single-quantity-modal .modal-content {
+  border: 1px solid rgba(217, 166, 111, 0.42);
+  background: #352219;
+  color: #fff;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
+}
+
+.single-quantity-modal .modal-header,
+.single-quantity-modal .modal-footer {
+  border-color: rgba(255, 255, 255, 0.13);
+}
+
+.single-quantity-modal .modal-header p,
+.single-quantity-product span {
+  color: #cfbba8;
+}
+
+.single-quantity-product {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.7rem;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.single-quantity-product-image,
+.single-quantity-product-image-fallback {
+  width: 78px;
+  height: 78px;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.single-quantity-product-image {
+  object-fit: contain;
+  padding: 0.25rem;
+}
+
+.single-quantity-product-image-fallback {
+  display: grid;
+  place-items: center;
+  color: #765c49;
+  font-size: 2rem;
+}
+
+.single-quantity-product strong,
+.single-quantity-product span {
+  display: block;
+}
+
+.single-quantity-product span {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.single-quantity-input {
+  min-height: 62px;
+  border: 2px solid rgba(217, 166, 111, 0.55);
+  background: #fff;
+  color: #34241c;
+  font-size: 2rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.single-quantity-presets {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+}
+
+.single-quantity-presets button {
+  min-height: 52px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.single-quantity-presets button:hover,
+.single-quantity-presets button:focus-visible {
+  border-color: #d9a66f;
+  background: #9a6847;
+  outline: 2px solid transparent;
+}
+
+.single-quantity-presets button:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.single-quantity-error {
+  margin: 0.75rem 0 0;
+  color: #ffb4ad;
+  font-weight: 700;
+  text-align: center;
+}
+
+@media (max-width: 520px) {
+  .single-quantity-presets {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .login-wrapper {

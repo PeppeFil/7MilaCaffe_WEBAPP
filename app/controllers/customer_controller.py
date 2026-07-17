@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from app.extensions import db
 from app.models import Customer
 from app.services.audit_service import registra_attivita
+from app.services.customer_service import apply_customer_data, create_customer, customer_error
 
 
 customer_bp = Blueprint("customers", __name__)
@@ -44,24 +45,13 @@ def index():
 @login_required
 def nuovo():
     if request.method == "POST":
-        cliente = Customer()
         try:
-            _apply_customer_data(cliente, request.form)
-            db.session.add(cliente)
-            db.session.flush()
-            registra_attivita(
-                utente_id=current_user.id,
-                azione="creazione_cliente",
-                entita_tipo="customer",
-                entita_id=str(cliente.id),
-                dettagli=cliente.ragione_sociale or cliente.nome,
-            )
-            db.session.commit()
+            create_customer(request.form, current_user.id)
             flash("Cliente creato correttamente.", "success")
             return redirect(url_for("customers.index"))
         except (IntegrityError, ValueError) as exc:
             db.session.rollback()
-            flash(_customer_error(exc), "danger")
+            flash(customer_error(exc), "danger")
     return render_template("customers/form.html", cliente=None)
 
 
@@ -71,7 +61,7 @@ def modifica(customer_id):
     cliente = Customer.query.get_or_404(customer_id)
     if request.method == "POST":
         try:
-            _apply_customer_data(cliente, request.form)
+            apply_customer_data(cliente, request.form)
             registra_attivita(
                 utente_id=current_user.id,
                 azione="modifica_cliente",
@@ -84,7 +74,7 @@ def modifica(customer_id):
             return redirect(url_for("customers.index", stato="tutti"))
         except (IntegrityError, ValueError) as exc:
             db.session.rollback()
-            flash(_customer_error(exc), "danger")
+            flash(customer_error(exc), "danger")
     return render_template("customers/form.html", cliente=cliente)
 
 
@@ -120,30 +110,3 @@ def ripristina(customer_id):
     db.session.commit()
     flash("Cliente ripristinato.", "success")
     return redirect(url_for("customers.index", stato="tutti"))
-
-
-def _apply_customer_data(cliente: Customer, data) -> None:
-    nome = (data.get("nome") or "").strip()
-    ragione_sociale = (data.get("ragione_sociale") or "").strip()
-    if not nome and not ragione_sociale:
-        raise ValueError("Inserisci almeno il nome o la ragione sociale.")
-    cliente.nome = nome or ragione_sociale
-    cliente.cognome = (data.get("cognome") or "").strip() or None
-    cliente.ragione_sociale = ragione_sociale or None
-    cliente.email = (data.get("email") or "").strip().lower() or None
-    cliente.telefono = (data.get("telefono") or "").strip() or None
-    cliente.codice_fiscale = (
-        (data.get("codice_fiscale") or "").strip().replace(" ", "").upper() or None
-    )
-    cliente.partita_iva = (
-        (data.get("partita_iva") or "").strip().replace(" ", "").upper() or None
-    )
-    cliente.indirizzo = (data.get("indirizzo") or "").strip() or None
-    cliente.note = (data.get("note") or "").strip() or None
-    cliente.attivo = data.get("attivo", "1") == "1"
-
-
-def _customer_error(exc: Exception) -> str:
-    if isinstance(exc, IntegrityError):
-        return "Codice fiscale o Partita IVA già presenti per un altro cliente."
-    return str(exc)

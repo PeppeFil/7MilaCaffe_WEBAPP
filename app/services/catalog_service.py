@@ -94,9 +94,12 @@ PREZZI_VENDITA_MANUALI = {
     "8034028336706": Decimal("22.00"),  # Respresso Red
     "8034028330476": Decimal("23.00"),  # Respresso Blu
     "8034028330643": Decimal("25.00"),  # Respresso Oro
+    "REBDEK100N": Decimal("25.00"),  # Respresso Dek
     "8034028330780": Decimal("24.00"),  # Cialde Borbone Nera
     "8034028330827": Decimal("26.00"),  # Cialde Borbone Red
     "8034028330506": Decimal("28.00"),  # Cialde Borbone Blu
+    "AMSDEK100NDONCARLO": Decimal("25.00"),  # Don Carlo Dek
+    "44BDEK150N": Decimal("32.00"),  # Cialde Borbone Dek
     "032315200057": Decimal("24.00"),  # Cialde Lollo Classico
     "032315200058": Decimal("27.00"),  # Cialde Lollo Oro
     "032315200059": Decimal("27.00"),  # Cialde Lollo Dek
@@ -124,14 +127,20 @@ ALIQUOTE_IVA_ACQUISTO = {
     "Capsule": Decimal("22"),
     "Cialde": Decimal("22"),
     "Capsule solubili": Decimal("10"),
+    "Solubili": Decimal("10"),
+    "Grani": Decimal("22"),
 }
 
 
 def _costo_iva_inclusa(costo_imponibile: Decimal, categoria: str) -> Decimal:
     aliquota = ALIQUOTE_IVA_ACQUISTO[categoria]
     return (costo_imponibile * (Decimal("1") + aliquota / Decimal("100"))).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
+        Decimal("0.000001"), rounding=ROUND_HALF_UP
     )
+
+
+def _aliquota_prodotto(categoria: str) -> int:
+    return 10 if ALIQUOTE_IVA_ACQUISTO[categoria] == Decimal("10") else 22
 
 
 def _product(
@@ -160,24 +169,85 @@ def _product(
     }
 
 
+def _borbone_product(
+    barcode: str,
+    nome: str,
+    category: str,
+    compatibility: str,
+    formato: str,
+    prezzo_listino: str,
+    quantita: int = 0,
+    image: str = "",
+    confezioni_per_collo: int = 1,
+) -> dict:
+    """Converte il listino Borbone nella singola unità vendibile.
+
+    Dalle conferme d'ordine viene considerato soltanto lo sconto base del 5%; gli
+    ulteriori sconti promozionali riportati nei documenti non entrano nel costo.
+    Il costo viene poi salvato IVA inclusa secondo la categoria del prodotto.
+    """
+    imponibile_unitario = (
+        Decimal(prezzo_listino)
+        / Decimal(confezioni_per_collo)
+        * Decimal("0.95")
+    )
+    row = _product(
+        barcode,
+        nome,
+        "Caffe Borbone",
+        "Caffe Borbone SRL",
+        category,
+        compatibility,
+        formato,
+        str(imponibile_unitario),
+        quantita,
+        image,
+    )
+    row["aggiorna_costo_da_fattura"] = True
+    row["documento_origine"] = "Fatture e conferme d'ordine Borbone aprile-giugno 2026"
+    return row
+
+
 CATALOGO_REALE = [
-    # Caffe Borbone - fattura 17/06/2026
+    # Caffe Borbone. Prezzo di listino meno il solo sconto base del 5%, poi IVA.
     _product("8034028330636", "Respresso Borbone Nera", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "100 capsule", "11.49", 16, IMG_CAPSULE),
-    _product("8034028336706", "Respresso Borbone Red", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "110 capsule", "12.31", 16, IMG_CAPSULE),
-    _product("8034028330476", "Respresso Borbone Blu", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "100 capsule", "12.50", 32, IMG_CAPSULE),
-    _product("8034028330643", "Respresso Borbone Oro", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "100 capsule", "13.49", 16, IMG_CAPSULE),
-    _product("8034028330674", "Don Carlo Borbone Nera", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "12.35", 32, IMG_DON_CARLO),
-    _product("8034028330698", "Don Carlo Borbone Red", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "12.96", 32, IMG_DON_CARLO),
-    _product("8034028330483", "Don Carlo Borbone Blu", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "13.44", 64, IMG_DON_CARLO),
-    _product("8034028338014", "Don Carlo Borbone Oro Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "14.51", 16, IMG_DON_CARLO),
-    _product("8034028330780", "Cialde Borbone Nera", "Caffe Borbone", "Caffe Borbone SRL", "Cialde", "ESE 44 mm", "150 cialde", "14.67", 20, IMG_CIALDE),
-    _product("8034028330827", "Cialde Borbone Red", "Caffe Borbone", "Caffe Borbone SRL", "Cialde", "ESE 44 mm", "150 cialde", "15.91", 20, IMG_CIALDE),
-    _product("8034028330506", "Cialde Borbone Blu", "Caffe Borbone", "Caffe Borbone SRL", "Cialde", "ESE 44 mm", "150 cialde", "17.83", 20, IMG_CIALDE),
+    _borbone_product("8034028336706", "Respresso Borbone Red", "Capsule", "Nespresso", "100 capsule", "13.64", 16, IMG_CAPSULE),
+    _borbone_product("8034028330476", "Respresso Borbone Blu", "Capsule", "Nespresso", "100 capsule", "14.15", 32, IMG_CAPSULE),
+    _borbone_product("8034028330643", "Respresso Borbone Oro", "Capsule", "Nespresso", "100 capsule", "15.27", 16, IMG_CAPSULE),
+    _borbone_product("8034028330674", "Don Carlo Borbone Nera", "Capsule", "Lavazza A Modo Mio", "100 capsule", "13.00", 32, IMG_DON_CARLO),
+    _borbone_product("8034028330698", "Don Carlo Borbone Red", "Capsule", "Lavazza A Modo Mio", "100 capsule", "13.64", 32, IMG_DON_CARLO),
+    _borbone_product("8034028330483", "Don Carlo Borbone Blu", "Capsule", "Lavazza A Modo Mio", "100 capsule", "14.15", 64, IMG_DON_CARLO),
+    _borbone_product("8034028338014", "Don Carlo Borbone Oro Compostabile", "Capsule", "Lavazza A Modo Mio", "100 capsule", "15.27", 16, IMG_DON_CARLO),
+    _borbone_product("8034028330780", "Cialde Borbone Nera", "Cialde", "ESE 44 mm", "150 cialde", "15.44", 20, IMG_CIALDE),
+    _borbone_product("8034028330827", "Cialde Borbone Red", "Cialde", "ESE 44 mm", "150 cialde", "16.75", 20, IMG_CIALDE),
+    _borbone_product("8034028330506", "Cialde Borbone Blu", "Cialde", "ESE 44 mm", "150 cialde", "18.77", 20, IMG_CIALDE),
     _product("8055176432317", "Borbone Dolce Gusto Blu", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Dolce Gusto", "50 capsule", "7.03", 20, IMG_DOLCE_GUSTO),
     _product("8055176432348", "Borbone Dolce Gusto Red", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Dolce Gusto", "50 capsule", "7.03", 20, IMG_DOLCE_GUSTO),
     _product("8055176432744", "Respresso Borbone 100% Arabica Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "50 capsule", "7.41", 5, IMG_CAPSULE),
     _product("8055176432751", "Don Carlo Borbone 100% Arabica Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "50 capsule", "7.41", 5, IMG_DON_CARLO),
-    _product("8034028333880", "Caffe Borbone Ginseng", "Caffe Borbone", "Caffe Borbone SRL", "Capsule solubili", "Sistema Borbone", "4 x 18 capsule", "13.57", 3, IMG_CAPSULE),
+    _borbone_product("8034028333880", "Caffe Borbone Ginseng", "Capsule solubili", "Sistema Borbone", "4 x 18 capsule", "14.28", 3, IMG_CAPSULE),
+    # Articoli presenti nei nuovi documenti ma non ancora nell'anagrafica.
+    # La giacenza parte da zero: i documenti storici servono al costo, non a
+    # simulare merce che potrebbe essere già stata venduta o trasferita.
+    _borbone_product("REBDEK100N", "Respresso Borbone Dek", "Capsule", "Nespresso", "100 capsule", "15.27"),
+    _borbone_product("REBMIANAPOLI10X10N", "Respresso Borbone Mia Napoli Viola", "Capsule", "Nespresso", "10 capsule", "14.15", confezioni_per_collo=10),
+    _borbone_product("AMSDEK100NDONCARLO", "Don Carlo Borbone Dek", "Capsule", "Lavazza A Modo Mio", "100 capsule", "15.27"),
+    _borbone_product("44BDEK150N", "Cialde Borbone Dek", "Cialde", "ESE 44 mm", "150 cialde", "21.07"),
+    _borbone_product("LVBROSSA100N", "Borbone Lavazza Blue Rossa", "Capsule", "Lavazza Blue", "100 capsule", "17.10"),
+    _borbone_product("LVBORO100N", "Borbone Lavazza Blue Oro", "Capsule", "Lavazza Blue", "100 capsule", "19.00"),
+    _borbone_product("BLTBBLU100N", "Borbone Bialetti Blu", "Capsule", "Bialetti", "100 capsule", "15.22"),
+    _borbone_product("BLTBRED100N", "Borbone Bialetti Red", "Capsule", "Bialetti", "100 capsule", "14.44"),
+    _borbone_product("DGBBLU90N", "Borbone Dolce Gusto Blu 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80"),
+    _borbone_product("DGBRED90N", "Borbone Dolce Gusto Red 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80"),
+    _borbone_product("CFIBBLU48X10", "Borbone Caffitaly Blu", "Capsule", "Caffitaly", "10 capsule", "126.64", confezioni_per_collo=48),
+    _borbone_product("CFIBRED48X10", "Borbone Caffitaly Rossa", "Capsule", "Caffitaly", "10 capsule", "122.05", confezioni_per_collo=48),
+    _borbone_product("GRBRED006REDVENDING", "Borbone Grani Red Vending", "Grani", "Grani", "1 kg", "60.96", confezioni_per_collo=6),
+    _borbone_product("GRBBLU006SUPERVENDIN", "Borbone Grani Supervending", "Grani", "Grani", "1 kg", "65.83", confezioni_per_collo=6),
+    _borbone_product("DGSUPERGIN4X16", "Borbone Super Ginseng Dolce Gusto", "Solubili", "Dolce Gusto", "16 capsule", "14.04", confezioni_per_collo=4),
+    _borbone_product("AMGINSENG6X16", "Borbone Ginseng A Modo Mio", "Solubili", "Lavazza A Modo Mio", "16 capsule", "15.73", confezioni_per_collo=6),
+    _borbone_product("RESGINSEN6X10", "Borbone Ginseng Respresso", "Solubili", "Nespresso", "10 capsule", "9.95", confezioni_per_collo=6),
+    _borbone_product("AMTHELIMONE6X16", "Borbone Te al Limone A Modo Mio", "Solubili", "Lavazza A Modo Mio", "16 capsule", "15.73", confezioni_per_collo=6),
+    _borbone_product("AMNOCCIOLINO6X16", "Borbone Nocciolino A Modo Mio", "Solubili", "Lavazza A Modo Mio", "16 capsule", "15.73", confezioni_per_collo=6),
     # Dical - fattura 22/06/2026. I costi includono sconti e omaggi ripartiti sulla giacenza ricevuta.
     _product("032415800016", "Passione Mito Classica", "Lollo", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "10.58", 148, IMG_MODO_MIO),
     _product("032415800017", "Passione Mito Oro", "Lollo", "Dical SRL", "Capsule", "Lavazza A Modo Mio", "100 capsule", "11.02", 33, IMG_MODO_MIO),
@@ -229,18 +299,30 @@ def sync_catalogo_reale() -> tuple[int, int]:
         raise RuntimeError("Aliquote IVA 10% e 22% non configurate.")
     operatore = User.query.filter_by(attivo=True).order_by(User.id.asc()).first()
     punto_vendita_iniziale = StoreLocation.query.filter_by(codice="via-pepoli", attivo=True).first()
+    punti_vendita = StoreLocation.query.filter_by(attivo=True).all()
 
     creati = 0
     presenti = 0
     for row in CATALOGO_REALE:
         esistente = Product.query.filter_by(sku_barcode=row["barcode"]).first()
         if esistente:
-            # Manteniamo invariati prezzi e giacenze, ma correggiamo le schede
-            # importate in precedenza con foto o descrizioni troppo generiche.
+            # Le giacenze e i prezzi di vendita restano invariati. Per gli
+            # articoli riconosciuti nei nuovi documenti riallineiamo invece il
+            # costo al listino -5% e l'anagrafica tecnica.
             esistente.nome = row["nome"]
             esistente.immagine_url = row["image"]
             esistente.marca_id = marche[row["brand"]].id
-            esistente.vat_rate_id = aliquote_iva[10 if row["category"] == "Capsule solubili" else 22].id
+            esistente.categoria_id = categorie[row["category"]].id
+            esistente.compatibilita_id = compatibilita[row["compatibility"]].id
+            esistente.formato_confezione = row["formato"]
+            esistente.fornitore_id = fornitori[row["supplier"]].id
+            esistente.vat_rate_id = aliquote_iva[_aliquota_prodotto(row["category"])].id
+            if row.get("aggiorna_costo_da_fattura"):
+                esistente.prezzo_acquisto = row["costo"]
+                esistente.note = (
+                    f"Costo aggiornato da {row['documento_origine']}: "
+                    "applicato soltanto lo sconto base del 5%."
+                )
             presenti += 1
             continue
 
@@ -254,7 +336,7 @@ def sync_catalogo_reale() -> tuple[int, int]:
             nome=row["nome"],
             categoria_id=categorie[row["category"]].id,
             marca_id=marche[row["brand"]].id,
-            vat_rate_id=aliquote_iva[10 if row["category"] == "Capsule solubili" else 22].id,
+            vat_rate_id=aliquote_iva[_aliquota_prodotto(row["category"])].id,
             compatibilita_id=compatibilita[row["compatibility"]].id,
             formato_confezione=row["formato"],
             prezzo_acquisto=row["costo"],
@@ -264,12 +346,16 @@ def sync_catalogo_reale() -> tuple[int, int]:
             sku_barcode=row["barcode"],
             immagine_url=row["image"],
             fornitore_id=fornitori[row["supplier"]].id,
-            note="Importato dai listini di acquisto di giugno 2026.",
+            note=(
+                f"Importato da {row['documento_origine']}; giacenza iniziale non caricata."
+                if row.get("documento_origine")
+                else "Importato dai listini di acquisto di giugno 2026."
+            ),
             attivo=True,
         )
         db.session.add(product)
         db.session.flush()
-        if operatore:
+        if row["quantita"] > 0 and operatore:
             registra_movimento(
                 prodotto=product,
                 tipo_movimento="carico",
@@ -279,8 +365,18 @@ def sync_catalogo_reale() -> tuple[int, int]:
                 riferimento_entita=row["supplier"],
                 punto_vendita_id=punto_vendita_iniziale.id if punto_vendita_iniziale else None,
             )
-        else:
+        elif row["quantita"] > 0:
             product.quantita_disponibile = row["quantita"]
+        else:
+            for punto_vendita in punti_vendita:
+                db.session.add(
+                    StoreInventory(
+                        punto_vendita_id=punto_vendita.id,
+                        prodotto_id=product.id,
+                        quantita_disponibile=0,
+                        quantita_minima_alert=product.quantita_minima_alert,
+                    )
+                )
         creati += 1
 
     # Alcuni articoli vengono creati manualmente e non appartengono al listino
@@ -289,6 +385,21 @@ def sync_catalogo_reale() -> tuple[int, int]:
         prodotto = Product.query.filter(func.lower(Product.nome) == nome).first()
         if prodotto:
             prodotto.immagine_url = immagine_url
+
+    # Donna Regina non aveva uno SKU nel primo import; la riconosciamo per nome
+    # per evitare un doppione e applichiamo lo stesso criterio contabile.
+    donna_regina = Product.query.filter(
+        func.lower(Product.nome).like("%donna regina%")
+    ).first()
+    if donna_regina:
+        donna_regina.prezzo_acquisto = _costo_iva_inclusa(
+            Decimal("14.22") * Decimal("0.95"), "Cialde"
+        )
+        donna_regina.formato_confezione = "170 cialde"
+        donna_regina.note = (
+            "Costo aggiornato dalle conferme d'ordine Borbone: "
+            "applicato soltanto lo sconto base del 5%."
+        )
 
     db.session.commit()
     return creati, presenti
@@ -321,8 +432,8 @@ def sync_varianti_singole() -> tuple[int, int, int]:
     """Crea o riallinea le unita singole di capsule e cialde.
 
     Le giacenze partono volutamente da zero: duplicare la disponibilita delle
-    confezioni conteggerebbe due volte la stessa merce. L'operatore puo caricare
-    le singole quando apre fisicamente una confezione.
+    confezioni conteggerebbe due volte la stessa merce. L'apertura delle
+    confezioni necessarie viene gestita automaticamente durante la vendita.
     """
     categoria_singole = Category.query.filter(
         func.lower(Category.nome) == SINGLE_CATEGORY_NAME.lower()

@@ -3,10 +3,13 @@ import json
 from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import case, func, or_
+from sqlalchemy.exc import IntegrityError
 
+from app.extensions import db
 from app.models import Brand, Category, Compatibility, Customer, Product, Sale
 from app.models.constants import METODI_PAGAMENTO
 from app.services.sale_service import crea_vendita
+from app.services.customer_service import create_customer, customer_error
 from app.services.store_service import mappa_disponibilita_vendibile, punto_vendita_corrente
 from app.utils.parsers import to_int
 
@@ -38,6 +41,7 @@ def _serialize_product(product: Product, quantita_disponibile: int | None = None
         "sku_barcode": product.sku_barcode or "",
         "immagine_url": product.immagine_url or "",
         "aliquota_iva": float(product.vat_rate.aliquota) if product.vat_rate else 0,
+        "is_variante_singola": product.is_variante_singola,
     }
 
 
@@ -48,7 +52,10 @@ def cassa():
     categorie = Category.query.order_by(Category.nome.asc()).all()
     prodotti_popolari = (
         Product.query.join(Product.brand)
-        .filter(Product.attivo.is_(True))
+        .filter(
+            Product.attivo.is_(True),
+            Product.confezione_origine_id.is_(None),
+        )
         .order_by(*_ordinamento_prodotti_cassa())
         .limit(25)
         .all()
@@ -100,6 +107,8 @@ def search_products():
         return jsonify({"error": "Categoria non valida."}), 400
     if categoria_id_int:
         query = query.filter(Product.categoria_id == categoria_id_int)
+    else:
+        query = query.filter(Product.confezione_origine_id.is_(None))
 
     products = query.order_by(*_ordinamento_prodotti_cassa()).limit(40).all()
     disponibilita = mappa_disponibilita_vendibile(
@@ -112,6 +121,26 @@ def search_products():
         )
         for product in products
     ])
+
+
+@cash_bp.route("/cassa/clienti", methods=["POST"])
+@login_required
+def create_checkout_customer():
+    try:
+        cliente = create_customer(request.form, current_user.id)
+        return jsonify(
+            {
+                "id": cliente.id,
+                "display_name": cliente.display_name,
+                "telefono": cliente.telefono or "",
+                "email": cliente.email or "",
+                "codice_fiscale": cliente.codice_fiscale or "",
+                "partita_iva": cliente.partita_iva or "",
+            }
+        ), 201
+    except (IntegrityError, ValueError) as exc:
+        db.session.rollback()
+        return jsonify({"error": customer_error(exc)}), 400
 
 
 @cash_bp.route("/cassa/checkout", methods=["POST"])

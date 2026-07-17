@@ -120,37 +120,95 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
       </div>
       <div class="modal-body">
-        <label class="visually-hidden" for="checkoutCustomerSearch">Cerca cliente</label>
-        <div class="input-group customer-modal-search">
-          <span class="input-group-text"><i class="bi bi-search"></i></span>
-          <input id="checkoutCustomerSearch" type="search" class="form-control" placeholder="Cerca per nome, telefono, email, codice fiscale o Partita IVA" autocomplete="off">
-        </div>
-        <div class="customer-choice-list" id="checkoutCustomerList">
-          <button type="button" class="customer-choice is-selected" data-customer-id="" data-customer-search="cliente generico">
-            <span class="customer-choice-icon"><i class="bi bi-person"></i></span>
-            <span><strong>Cliente generico</strong><small>Nessuna anagrafica associata</small></span>
-            <i class="bi bi-check-circle-fill customer-choice-check"></i>
-          </button>
-          {% for cliente in clienti %}
-            <button type="button" class="customer-choice" data-customer-id="{{ cliente.id }}" data-customer-search="{{ (cliente.display_name ~ ' ' ~ (cliente.telefono or '') ~ ' ' ~ (cliente.email or '') ~ ' ' ~ (cliente.codice_fiscale or '') ~ ' ' ~ (cliente.partita_iva or ''))|lower }}">
-              <span class="customer-choice-icon"><i class="bi bi-person-vcard"></i></span>
-              <span>
-                <strong>{{ cliente.display_name }}</strong>
-                <small>
-                  {{ cliente.telefono or cliente.email or 'Nessun contatto' }}
-                  {% if cliente.partita_iva %} · P.IVA {{ cliente.partita_iva }}{% elif cliente.codice_fiscale %} · CF {{ cliente.codice_fiscale }}{% endif %}
-                </small>
-              </span>
+        <div id="customerSelectionPanel">
+          <label class="visually-hidden" for="checkoutCustomerSearch">Cerca cliente</label>
+          <div class="input-group customer-modal-search">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input id="checkoutCustomerSearch" type="search" class="form-control" placeholder="Cerca per nome, telefono, email, codice fiscale o Partita IVA" autocomplete="off">
+          </div>
+          <div class="customer-choice-list" id="checkoutCustomerList">
+            <button type="button" class="customer-choice is-selected" data-customer-id="" data-customer-search="cliente generico">
+              <span class="customer-choice-icon"><i class="bi bi-person"></i></span>
+              <span><strong>Cliente generico</strong><small>Nessuna anagrafica associata</small></span>
               <i class="bi bi-check-circle-fill customer-choice-check"></i>
             </button>
-          {% endfor %}
+            {% for cliente in clienti %}
+              <button type="button" class="customer-choice" data-customer-id="{{ cliente.id }}" data-customer-search="{{ (cliente.display_name ~ ' ' ~ (cliente.telefono or '') ~ ' ' ~ (cliente.email or '') ~ ' ' ~ (cliente.codice_fiscale or '') ~ ' ' ~ (cliente.partita_iva or ''))|lower }}">
+                <span class="customer-choice-icon"><i class="bi bi-person-vcard"></i></span>
+                <span>
+                  <strong>{{ cliente.display_name }}</strong>
+                  <small>
+                    {{ cliente.telefono or cliente.email or 'Nessun contatto' }}
+                    {% if cliente.partita_iva %} · P.IVA {{ cliente.partita_iva }}{% elif cliente.codice_fiscale %} · CF {{ cliente.codice_fiscale }}{% endif %}
+                  </small>
+                </span>
+                <i class="bi bi-check-circle-fill customer-choice-check"></i>
+              </button>
+            {% endfor %}
+          </div>
+          <p id="customerNoResults" class="customer-no-results" hidden>Nessun cliente corrisponde alla ricerca.</p>
         </div>
-        <p id="customerNoResults" class="customer-no-results" hidden>Nessun cliente corrisponde alla ricerca.</p>
+        <form id="checkoutNewCustomerForm" class="checkout-new-customer" hidden>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input type="hidden" name="attivo" value="1">
+          <div class="checkout-customer-form-heading">
+            <i class="bi bi-person-plus" aria-hidden="true"></i>
+            <div><strong>Nuovo cliente</strong><span>Resta nella cassa: il carrello non verrà modificato.</span></div>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label" for="cashCustomerName">Nome *</label><input id="cashCustomerName" class="form-control" name="nome" autocomplete="given-name"></div>
+            <div class="col-md-6"><label class="form-label" for="cashCustomerSurname">Cognome</label><input id="cashCustomerSurname" class="form-control" name="cognome" autocomplete="family-name"></div>
+            <div class="col-12"><label class="form-label" for="cashCustomerCompany">Ragione sociale</label><input id="cashCustomerCompany" class="form-control" name="ragione_sociale" autocomplete="organization"></div>
+            <div class="col-md-6"><label class="form-label" for="cashCustomerPhone">Telefono</label><input id="cashCustomerPhone" class="form-control" name="telefono" autocomplete="tel"></div>
+            <div class="col-md-6"><label class="form-label" for="cashCustomerEmail">Email</label><input id="cashCustomerEmail" type="email" class="form-control" name="email" autocomplete="email"></div>
+            <div class="col-md-6"><label class="form-label" for="cashCustomerFiscalCode">Codice fiscale</label><input id="cashCustomerFiscalCode" class="form-control" name="codice_fiscale" maxlength="20"></div>
+            <div class="col-md-6"><label class="form-label" for="cashCustomerVat">Partita IVA</label><input id="cashCustomerVat" class="form-control" name="partita_iva" maxlength="20"></div>
+            <div class="col-12"><label class="form-label" for="cashCustomerAddress">Indirizzo</label><input id="cashCustomerAddress" class="form-control" name="indirizzo" autocomplete="street-address"></div>
+            <div class="col-12"><label class="form-label" for="cashCustomerNotes">Note</label><textarea id="cashCustomerNotes" class="form-control" name="note" rows="2"></textarea></div>
+          </div>
+          <div id="checkoutCustomerFormError" class="alert alert-danger mt-3 mb-0" role="alert" hidden></div>
+        </form>
       </div>
-      <div class="modal-footer">
-        <a href="{{ url_for('customers.nuovo') }}" class="btn btn-outline-light me-auto"><i class="bi bi-person-plus"></i> Nuovo cliente</a>
+      <div class="modal-footer" id="customerSelectionFooter">
+        <button type="button" id="showNewCustomerButton" class="btn btn-outline-light me-auto"><i class="bi bi-person-plus"></i> Nuovo cliente</button>
         <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Annulla</button>
         <button type="button" id="checkoutConfirmButton" class="btn btn-coffee"><i class="bi bi-check2-circle"></i> Conferma vendita</button>
+      </div>
+      <div class="modal-footer" id="customerCreationFooter" hidden>
+        <button type="button" id="cancelNewCustomerButton" class="btn btn-outline-light me-auto"><i class="bi bi-arrow-left"></i> Torna ai clienti</button>
+        <button type="submit" form="checkoutNewCustomerForm" id="saveNewCustomerButton" class="btn btn-coffee"><i class="bi bi-person-check"></i> Salva e seleziona</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade single-quantity-modal" id="singleQuantityModal" tabindex="-1" aria-labelledby="singleQuantityTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <p class="mb-1 text-uppercase small">Vendita cialde singole</p>
+          <h2 class="modal-title fs-4" id="singleQuantityTitle">Scegli la quantità</h2>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body">
+        <div class="single-quantity-product">
+          <div id="singleQuantityImage"></div>
+          <div><strong id="singleQuantityProductName"></strong><span id="singleQuantityStock"></span></div>
+        </div>
+        <label for="singleQuantityInput" class="form-label">Quantità desiderata</label>
+        <input id="singleQuantityInput" type="number" inputmode="numeric" min="1" step="1" class="form-control single-quantity-input" value="1">
+        <div class="single-quantity-presets" role="group" aria-label="Quantità rapide">
+          {% for quantity in [1, 10, 25, 50, 100] %}
+            <button type="button" data-single-quantity="{{ quantity }}">{{ quantity }}</button>
+          {% endfor %}
+        </div>
+        <p id="singleQuantityError" class="single-quantity-error" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" id="singleQuantityConfirm" class="btn btn-coffee"><i class="bi bi-cart-plus"></i> Imposta quantità</button>
       </div>
     </div>
   </div>

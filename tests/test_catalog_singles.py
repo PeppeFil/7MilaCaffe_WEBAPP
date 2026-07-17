@@ -1,8 +1,13 @@
 from decimal import Decimal
 
 from app.extensions import db
-from app.models import Brand, Category, Product
-from app.services.catalog_service import _sku_singola, sync_varianti_singole
+from app.models import Brand, Category, InventoryMovement, Product, VatRate
+from app.services.catalog_service import (
+    CATALOGO_REALE,
+    _sku_singola,
+    sync_catalogo_reale,
+    sync_varianti_singole,
+)
 
 
 def test_sync_varianti_singole_calculates_unit_prices_and_is_idempotent(app):
@@ -73,3 +78,37 @@ def test_single_sku_treats_text_none_as_missing(app):
         prodotto = Product.query.filter_by(sku_barcode="TEST-001").one()
         prodotto.sku_barcode = "None"
         assert _sku_singola(prodotto) == f"SINGOLA-{prodotto.id}"
+
+
+def test_borbone_invoices_use_only_base_discount_and_retail_units():
+    catalogo = {row["barcode"]: row for row in CATALOGO_REALE}
+
+    # 126,64 EUR è un collo da 48 confezioni da 10; costo unitario IVA 22%.
+    assert catalogo["CFIBBLU48X10"]["formato"] == "10 capsule"
+    assert catalogo["CFIBBLU48X10"]["costo"] == Decimal("3.057828")
+    # 15,73 EUR è un collo da 6 confezioni solubili; IVA 10%.
+    assert catalogo["AMGINSENG6X16"]["formato"] == "16 capsule"
+    assert catalogo["AMGINSENG6X16"]["costo"] == Decimal("2.739642")
+
+    nuovi_sku = {
+        "REBDEK100N",
+        "AMSDEK100NDONCARLO",
+        "44BDEK150N",
+        "DGBBLU90N",
+        "GRBRED006REDVENDING",
+    }
+    assert all(catalogo[sku]["quantita"] == 0 for sku in nuovi_sku)
+    assert all(catalogo[sku]["aggiorna_costo_da_fattura"] for sku in nuovi_sku)
+
+
+def test_new_invoice_products_start_at_zero_without_inventory_movements(app):
+    with app.app_context():
+        db.session.add(VatRate(nome="IVA 10%", aliquota=10, attiva=True))
+        db.session.commit()
+
+        sync_catalogo_reale()
+
+        prodotto = Product.query.filter_by(sku_barcode="REBDEK100N").one()
+        assert prodotto.quantita_disponibile == 0
+        assert prodotto.prezzo_acquisto == Decimal("17.697930")
+        assert InventoryMovement.query.filter_by(prodotto_id=prodotto.id).count() == 0
