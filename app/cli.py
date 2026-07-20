@@ -21,6 +21,60 @@ def register_commands(app) -> None:
     app.cli.add_command(create_admin)
     app.cli.add_command(import_catalogo_reale)
     app.cli.add_command(imposta_giacenza_ultimo_import)
+    app.cli.add_command(riconcilia_giacenze_20_luglio)
+
+
+GIACENZE_20_LUGLIO = {
+    "via-pepoli": {
+        "8034028330636": 34,
+        "8034028336706": 5,
+        "8034028330476": 46,
+        "REBDEK100N": 9,
+        "8034028330643": 19,
+        "8034028330780": 34,
+        "8034028330827": 15,
+        "8034028330506": 16,
+        "44BDEK150N": 18,
+        "44BORO150N": 30,
+        "8034028330698": 24,
+        "8034028330674": 23,
+        "8034028330483": 20,
+        "8034028338014": 15,
+        "AMSDEK100NDONCARLO": 27,
+        "DONNAREGINA170": 11,
+        "BLTBBLU100N": 14,
+        "BLTBDEK100N": 8,
+        "BLTBRED100N": 5,
+        "LVBROSSA100N": 4,
+        "DGBDEK90N": 26,
+        "DGBRED90N": 0,
+        "DGBBLU90N": 0,
+        "GRBRED006REDVENDING": 12,
+        "GRBBLU006SUPERVENDIN": 16,
+    },
+    "via-vespri": {
+        "8034028330780": 41,
+        "8034028330827": 10,
+        "8034028330506": 6,
+        "44BORO150N": 8,
+        "44BDEK150N": 9,
+        "8034028330674": 23,
+        "8034028330698": 22,
+        "8034028330483": 4,
+        "AMSDEK100NDONCARLO": 9,
+        "8034028338014": 2,
+        "8034028330636": 1,
+        "8034028336706": 29,
+        "8034028330476": 2,
+        "8034028330643": 17,
+        "REBDEK100N": 22,
+        "DGBBLU90N": 4,
+        "DONNAREGINA170": 25,
+        "BLTBRED100N": 8,
+        "BLTBBLU100N": 8,
+        "BLTBDEK100N": 3,
+    },
+}
 
 
 @click.command("create-admin")
@@ -151,4 +205,92 @@ def imposta_giacenza_ultimo_import(quantita: int) -> None:
     click.echo(
         f"Giacenza {quantita}: {len(prodotti)} articoli, "
         f"{len(punti_vendita)} punti vendita, {movimenti_creati} rettifiche."
+    )
+
+
+@click.command("riconcilia-giacenze-20-luglio")
+@with_appcontext
+def riconcilia_giacenze_20_luglio() -> None:
+    """Allinea alle conte fisiche del 20/07/2026 lasciando una traccia movimenti."""
+    punti_vendita = {
+        punto.codice: punto
+        for punto in StoreLocation.query.filter(
+            StoreLocation.codice.in_(GIACENZE_20_LUGLIO)
+        ).all()
+    }
+    negozi_mancanti = sorted(set(GIACENZE_20_LUGLIO) - set(punti_vendita))
+    if negozi_mancanti:
+        raise click.ClickException(
+            "Punti vendita non trovati: " + ", ".join(negozi_mancanti)
+        )
+
+    sku_richiesti = {
+        riferimento
+        for conteggio in GIACENZE_20_LUGLIO.values()
+        for riferimento in conteggio
+    }
+    prodotti = Product.query.filter(Product.sku_barcode.in_(sku_richiesti)).all()
+    prodotti_per_riferimento = {
+        prodotto.sku_barcode: prodotto for prodotto in prodotti
+    }
+    riferimenti_richiesti = {
+        riferimento
+        for conteggio in GIACENZE_20_LUGLIO.values()
+        for riferimento in conteggio
+    }
+    articoli_mancanti = sorted(
+        riferimenti_richiesti - set(prodotti_per_riferimento)
+    )
+    if articoli_mancanti:
+        raise click.ClickException(
+            "Articoli non trovati: " + ", ".join(articoli_mancanti)
+        )
+
+    operatore = User.query.filter(
+        func.lower(User.username) == "admin", User.attivo.is_(True)
+    ).first()
+    if not operatore:
+        raise click.ClickException("Utente admin attivo non disponibile.")
+
+    movimenti_creati = 0
+    articoli_invariati = 0
+    for codice_negozio, conteggio in GIACENZE_20_LUGLIO.items():
+        punto_vendita = punti_vendita[codice_negozio]
+        for riferimento, quantita_obiettivo in conteggio.items():
+            prodotto = prodotti_per_riferimento[riferimento]
+            delta = quantita_obiettivo - quantita_fisica(
+                prodotto, punto_vendita.id
+            )
+            if delta == 0:
+                articoli_invariati += 1
+                continue
+            registra_movimento(
+                prodotto=prodotto,
+                tipo_movimento="rettifica",
+                quantita=delta,
+                operatore_id=operatore.id,
+                motivo=(
+                    "Riconciliazione con conteggio fisico del 20/07/2026 "
+                    f"(obiettivo {quantita_obiettivo})"
+                ),
+                riferimento_entita="inventario-fisico:2026-07-20",
+                punto_vendita_id=punto_vendita.id,
+            )
+            movimenti_creati += 1
+
+    registra_attivita(
+        utente_id=operatore.id,
+        azione="riconciliazione_inventario",
+        entita_tipo="magazzino",
+        entita_id="2026-07-20",
+        dettagli=(
+            f"{len(riferimenti_richiesti)} prodotti conteggiati in "
+            f"{len(GIACENZE_20_LUGLIO)} punti vendita; "
+            f"{movimenti_creati} rettifiche, {articoli_invariati} invariati."
+        ),
+    )
+    db.session.commit()
+    click.echo(
+        f"Riconciliazione completata: {movimenti_creati} rettifiche, "
+        f"{articoli_invariati} articoli gia corretti."
     )

@@ -101,7 +101,7 @@
                 data-search="{{ (cliente.display_name ~ ' ' ~ (cliente.nome or '') ~ ' ' ~ (cliente.cognome or '') ~ ' ' ~ (cliente.telefono or '') ~ ' ' ~ (cliente.email or '') ~ ' ' ~ (cliente.codice_fiscale or '') ~ ' ' ~ (cliente.partita_iva or '') ~ ' ' ~ customer_code)|lower }}"
                 data-status="{{ 'active' if cliente.attivo else 'inactive' }}"
                 data-type="{{ customer_type }}"
-                data-address="{{ (cliente.indirizzo or '')|lower }}"
+                data-city="{{ (cliente.citta or '')|lower }}"
                 tabindex="0"
                 role="button"
                 aria-label="Apri scheda {{ cliente.display_name }}">
@@ -124,7 +124,7 @@
                   {% else %}<span class="customers-empty-value">—</span>{% endif %}
                 </div>
               </td>
-              <td><span class="customers-address"><i class="bi bi-geo-alt" aria-hidden="true"></i>{{ cliente.indirizzo or '—' }}</span></td>
+              <td><span class="customers-address"><i class="bi bi-geo-alt" aria-hidden="true"></i><span>{{ cliente.indirizzo or '—' }}{% if cliente.citta %}<small>{{ cliente.citta }}</small>{% endif %}</span></span></td>
               <td>
                 {% if last_sale %}
                   <div class="customers-last-sale"><strong>{{ last_sale.data_ora|roma_datetime }}</strong><span>€ {{ "%.2f"|format(last_sale.totale_netto) }} · #{{ last_sale.id }}</span></div>
@@ -176,19 +176,19 @@
                     <div><dt><i class="bi bi-telephone" aria-hidden="true"></i> Telefono</dt><dd>{{ cliente.telefono or '—' }}</dd></div>
                     <div><dt><i class="bi bi-envelope" aria-hidden="true"></i> Email</dt><dd>{{ cliente.email or '—' }}</dd></div>
                     <div><dt><i class="bi bi-geo-alt" aria-hidden="true"></i> Indirizzo</dt><dd>{{ cliente.indirizzo or '—' }}</dd></div>
+                    <div><dt><i class="bi bi-signpost" aria-hidden="true"></i> Città</dt><dd>{{ cliente.citta or '—' }}</dd></div>
+                    <div><dt><i class="bi bi-cup-hot" aria-hidden="true"></i> Compatibilità preferita</dt><dd>{{ cliente.compatibilita_preferita.nome if cliente.compatibilita_preferita else 'Nessuna preferenza' }}</dd></div>
                     <div><dt><i class="bi bi-person-vcard" aria-hidden="true"></i> Codice fiscale</dt><dd>{{ cliente.codice_fiscale or '—' }}</dd></div>
                     <div><dt><i class="bi bi-building-check" aria-hidden="true"></i> Partita IVA</dt><dd>{{ cliente.partita_iva or '—' }}</dd></div>
                     <div class="customer-detail-notes"><dt><i class="bi bi-card-text" aria-hidden="true"></i> Note</dt><dd>{{ cliente.note or 'Nessuna nota' }}</dd></div>
                   </dl>
                 </div>
 
-                <div class="customer-detail-section">
-                  <h4>Ultima vendita</h4>
-                  {% if last_sale %}
-                    <a class="customer-detail-sale" href="{{ url_for('sales.detail', sale_id=last_sale.id) }}"><span><i class="bi bi-calendar3" aria-hidden="true"></i><strong>{{ last_sale.data_ora|roma_datetime }}</strong><small>Vendita #{{ last_sale.id }}</small></span><strong>€ {{ "%.2f"|format(last_sale.totale_netto) }}</strong></a>
-                  {% else %}
-                    <div class="customer-detail-no-sale"><i class="bi bi-receipt" aria-hidden="true"></i><span>Nessuna vendita associata</span></div>
-                  {% endif %}
+                <div class="customer-detail-section customer-history-section">
+                  <h4>Storico completo degli acquisti</h4>
+                  <div class="customer-history-content" data-customer-history data-history-url="{{ url_for('customers.storico', customer_id=cliente.id) }}">
+                    <div class="customer-history-loader"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Caricamento vendite…</div>
+                  </div>
                 </div>
 
                 <div class="customer-detail-actions">
@@ -252,6 +252,7 @@
     const detailPanelBody = document.getElementById("customerDetailPanelBody");
     const detailPanelTitle = document.getElementById("customerDetailPanelTitle");
     const detailOffcanvas = bootstrap.Offcanvas.getOrCreateInstance(detailPanel);
+    const historyCache = new Map();
     let currentPage = 1;
 
     const normalize = value => (value || "").toLocaleLowerCase("it-IT").trim();
@@ -261,7 +262,7 @@
       return rows.filter(row => (!filters.search || normalize(row.dataset.search).includes(filters.search))
         && (filters.status === "all" || row.dataset.status === filters.status)
         && (!filters.type || row.dataset.type === filters.type)
-        && (!filters.city || normalize(row.dataset.address).includes(filters.city)));
+        && (!filters.city || normalize(row.dataset.city).includes(filters.city)));
     };
 
     const addFilterChip = (label, value, control) => {
@@ -331,13 +332,30 @@
       render();
     };
 
-    const openCustomer = customerId => {
+    const openCustomer = async customerId => {
       const template = document.getElementById(`customerDetail${customerId}`);
       if (!template) return;
       detailPanelBody.replaceChildren(template.content.cloneNode(true));
       const title = template.content.querySelector("h3")?.textContent || "Dettaglio cliente";
       detailPanelTitle.textContent = title;
       detailOffcanvas.show();
+      const historyTarget = detailPanelBody.querySelector("[data-customer-history]");
+      if (!historyTarget) return;
+      if (historyCache.has(customerId)) {
+        historyTarget.innerHTML = historyCache.get(customerId);
+        return;
+      }
+      try {
+        const response = await fetch(historyTarget.dataset.historyUrl, {
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
+        if (!response.ok) throw new Error("Storico non disponibile");
+        const content = await response.text();
+        historyCache.set(customerId, content);
+        historyTarget.innerHTML = content;
+      } catch (error) {
+        historyTarget.innerHTML = '<div class="customer-detail-no-sale"><i class="bi bi-exclamation-triangle"></i><span>Impossibile caricare lo storico.</span></div>';
+      }
     };
 
     filterForm.addEventListener("submit", event => { event.preventDefault(); currentPage = 1; render(); });

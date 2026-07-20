@@ -100,6 +100,9 @@ PREZZI_VENDITA_MANUALI = {
     "8034028330506": Decimal("28.00"),  # Cialde Borbone Blu
     "AMSDEK100NDONCARLO": Decimal("25.00"),  # Don Carlo Dek
     "44BDEK150N": Decimal("32.00"),  # Cialde Borbone Dek
+    "44BORO150N": Decimal("32.00"),  # Cialde Borbone Oro
+    "BLTBDEK100N": Decimal("24.00"),  # Borbone Bialetti Dek
+    "DGBDEK90N": Decimal("24.00"),  # Borbone Dolce Gusto Dek
     "032315200057": Decimal("24.00"),  # Cialde Lollo Classico
     "032315200058": Decimal("27.00"),  # Cialde Lollo Oro
     "032315200059": Decimal("27.00"),  # Cialde Lollo Dek
@@ -248,6 +251,7 @@ CATALOGO_REALE = [
     _product("8055176432744", "Respresso Borbone 100% Arabica Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "50 capsule", "7.41", 5, IMG_CAPSULE),
     _product("8055176432751", "Don Carlo Borbone 100% Arabica Compostabile", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Lavazza A Modo Mio", "50 capsule", "7.41", 5, IMG_DON_CARLO),
     _borbone_product("8034028333880", "Caffe Borbone Ginseng", "Solubili", "Sistema Borbone", "4 x 18 capsule", "14.28", 3, IMG_CAPSULE),
+    _borbone_product("DONNAREGINA170", "Caffe Donna Regina", "Cialde", "ESE 44 mm", "170 cialde", "14.22", image="/static/img/products/donna-regina.jpg"),
     # Articoli presenti nei nuovi documenti ma non ancora nell'anagrafica.
     # La giacenza parte da zero: i documenti storici servono al costo, non a
     # simulare merce che potrebbe essere già stata venduta o trasferita.
@@ -255,12 +259,15 @@ CATALOGO_REALE = [
     _borbone_product("REBMIANAPOLI10X10N", "Respresso Borbone Mia Napoli Viola", "Capsule", "Nespresso", "10 capsule", "14.15", confezioni_per_collo=10),
     _borbone_product("AMSDEK100NDONCARLO", "Don Carlo Borbone Dek", "Capsule", "Lavazza A Modo Mio", "100 capsule", "15.27"),
     _borbone_product("44BDEK150N", "Cialde Borbone Dek", "Cialde", "ESE 44 mm", "150 cialde", "21.07"),
+    _borbone_product("44BORO150N", "Cialde Borbone Oro", "Cialde", "ESE 44 mm", "150 cialde", "21.07", image=IMG_CIALDE),
     _borbone_product("LVBROSSA100N", "Borbone Lavazza Blue Rossa", "Capsule", "Lavazza Blue", "100 capsule", "17.10"),
     _borbone_product("LVBORO100N", "Borbone Lavazza Blue Oro", "Capsule", "Lavazza Blue", "100 capsule", "19.00"),
     _borbone_product("BLTBBLU100N", "Borbone Bialetti Blu", "Capsule", "Bialetti", "100 capsule", "15.22"),
     _borbone_product("BLTBRED100N", "Borbone Bialetti Red", "Capsule", "Bialetti", "100 capsule", "14.44"),
+    _borbone_product("BLTBDEK100N", "Borbone Bialetti Dek", "Capsule", "Bialetti", "100 capsule", "15.22", image=IMG_CAPSULE),
     _borbone_product("DGBBLU90N", "Borbone Dolce Gusto Blu 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80"),
     _borbone_product("DGBRED90N", "Borbone Dolce Gusto Red 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80"),
+    _borbone_product("DGBDEK90N", "Borbone Dolce Gusto Dek 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80", image=IMG_DOLCE_GUSTO),
     _borbone_product("CFIBBLU48X10", "Borbone Caffitaly Blu", "Capsule", "Caffitaly", "10 capsule", "126.64", confezioni_per_collo=48),
     _borbone_product("CFIBRED48X10", "Borbone Caffitaly Rossa", "Capsule", "Caffitaly", "10 capsule", "122.05", confezioni_per_collo=48),
     _borbone_product("GRBRED006REDVENDING", "Borbone Grani Red Vending", "Grani", "Grani", "1 kg", "60.96", confezioni_per_collo=6),
@@ -327,6 +334,13 @@ def sync_catalogo_reale() -> tuple[int, int]:
     presenti = 0
     for row in CATALOGO_REALE:
         esistente = Product.query.filter_by(sku_barcode=row["barcode"]).first()
+        if not esistente and row["barcode"] == "DONNAREGINA170":
+            esistente = Product.query.filter(
+                Product.confezione_origine_id.is_(None),
+                func.lower(Product.nome) == "caffe donna regina",
+            ).first()
+            if esistente and not esistente.sku_barcode:
+                esistente.sku_barcode = row["barcode"]
         if esistente:
             # Le giacenze e i prezzi di vendita restano invariati. Per gli
             # articoli riconosciuti nei nuovi documenti riallineiamo invece il
@@ -411,7 +425,8 @@ def sync_catalogo_reale() -> tuple[int, int]:
     # Donna Regina non aveva uno SKU nel primo import; la riconosciamo per nome
     # per evitare un doppione e applichiamo lo stesso criterio contabile.
     donna_regina = Product.query.filter(
-        func.lower(Product.nome).like("%donna regina%")
+        Product.confezione_origine_id.is_(None),
+        func.lower(Product.nome).like("%donna regina%"),
     ).first()
     if donna_regina:
         donna_regina.prezzo_acquisto = _costo_iva_inclusa(
@@ -495,6 +510,15 @@ def sync_varianti_singole() -> tuple[int, int, int]:
 
         sku = _sku_singola(sorgente)
         singola = Product.query.filter_by(sku_barcode=sku).first()
+        if not singola:
+            # Lo SKU della confezione puo essere stato assegnato dopo la prima
+            # creazione della singola (caso Donna Regina). Il legame fisico e
+            # l'identita primaria restano la fonte autorevole.
+            singola = Product.query.filter_by(
+                confezione_origine_id=sorgente.id
+            ).first()
+            if singola:
+                singola.sku_barcode = sku
         nuovi_prezzi = {
             "prezzo_acquisto": (Decimal(sorgente.prezzo_acquisto) / unita).quantize(
                 Decimal("0.000001"), rounding=ROUND_HALF_UP

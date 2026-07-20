@@ -1,0 +1,37 @@
+{% if vendite %}
+  <div class="customer-history-summary">
+    <span><strong>{{ vendite|length }}</strong> vendite registrate</span>
+    <span>Totale storico <strong>€ {{ "%.2f"|format(vendite|selectattr('stato', 'equalto', 'completata')|sum(attribute='totale_netto')) }}</strong></span>
+  </div>
+  <div class="customer-history-list">
+    {% for vendita in vendite %}
+      <details class="customer-history-sale" {% if loop.first %}open{% endif %}>
+        <summary>
+          <span>
+            <strong>Vendita #{{ vendita.id }} · {{ vendita.data_ora|roma_datetime }}</strong>
+            <small><i class="bi bi-shop" aria-hidden="true"></i> {{ vendita.punto_vendita.nome if vendita.punto_vendita else 'Punto vendita non indicato' }}{% if vendita.punto_vendita %} · {{ vendita.punto_vendita.comune }}{% endif %}</small>
+          </span>
+          <span class="customer-history-sale-total">
+            <strong>€ {{ "%.2f"|format(vendita.totale_netto) }}</strong>
+            <small class="sales-status-badge is-{{ vendita.stato }}">{{ vendita.stato|title }}</small>
+          </span>
+        </summary>
+        <div class="customer-history-items">
+          {% for riga in vendita.righe %}
+            <div>
+              <span><strong>{{ riga.prodotto.nome if riga.prodotto else 'Prodotto non disponibile' }}</strong><small>{{ riga.quantita }} × € {{ "%.2f"|format(riga.prezzo_unitario) }}</small></span>
+              <strong>€ {{ "%.2f"|format(riga.totale_netto) }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+        <footer>
+          <span><i class="bi bi-wallet2" aria-hidden="true"></i> {{ vendita.metodo_pagamento|replace('_', ' ')|title }}</span>
+          <span><i class="bi bi-person-badge" aria-hidden="true"></i> {{ vendita.operatore.username if vendita.operatore else '—' }}</span>
+          <a href="{{ url_for('sales.detail', sale_id=vendita.id) }}">Apri dettaglio</a>
+        </footer>
+      </details>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="customer-detail-no-sale"><i class="bi bi-receipt" aria-hidden="true"></i><span>Nessuna vendita associata</span></div>
+{% endif %}

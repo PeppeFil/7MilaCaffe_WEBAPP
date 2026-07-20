@@ -34,6 +34,11 @@
       <span><i class="bi bi-person-badge" aria-hidden="true"></i> Operatore</span>
       <strong>{{ vendita.operatore.username if vendita.operatore else '—' }}</strong>
     </article>
+    <article>
+      <span><i class="bi bi-shop" aria-hidden="true"></i> Punto vendita</span>
+      <strong>{{ vendita.punto_vendita.nome if vendita.punto_vendita else 'Non indicato' }}</strong>
+      {% if vendita.punto_vendita %}<small>{{ vendita.punto_vendita.indirizzo_completo }}</small>{% endif %}
+    </article>
   </div>
 
   <div class="sale-detail-section">

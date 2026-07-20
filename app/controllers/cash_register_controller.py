@@ -115,6 +115,7 @@ def cassa():
         punto_vendita_id, prodotti_popolari
     )
     clienti = Customer.query.filter_by(attivo=True).order_by(Customer.nome.asc(), Customer.cognome.asc()).all()
+    compatibilita_clienti = Compatibility.query.order_by(Compatibility.nome.asc()).all()
     return render_template(
         "cassa.html",
         categorie=categorie,
@@ -128,6 +129,7 @@ def cassa():
         ],
         metodi_pagamento=METODI_PAGAMENTO,
         clienti=clienti,
+        compatibilita_clienti=compatibilita_clienti,
     )
 
 
@@ -183,7 +185,12 @@ def search_products():
 @login_required
 def create_checkout_customer():
     try:
-        cliente = create_customer(request.form, current_user.id)
+        punto_vendita = punto_vendita_corrente()
+        cliente = create_customer(
+            request.form,
+            current_user.id,
+            citta_predefinita=punto_vendita.comune if punto_vendita else None,
+        )
         return jsonify(
             {
                 "id": cliente.id,
@@ -192,6 +199,12 @@ def create_checkout_customer():
                 "email": cliente.email or "",
                 "codice_fiscale": cliente.codice_fiscale or "",
                 "partita_iva": cliente.partita_iva or "",
+                "citta": cliente.citta or "",
+                "compatibilita_preferita": (
+                    cliente.compatibilita_preferita.nome
+                    if cliente.compatibilita_preferita
+                    else ""
+                ),
             }
         ), 201
     except (IntegrityError, ValueError) as exc:

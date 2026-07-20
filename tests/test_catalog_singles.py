@@ -17,6 +17,7 @@ from app.services.catalog_service import (
     sync_catalogo_reale,
     sync_varianti_singole,
 )
+from app.cli import GIACENZE_20_LUGLIO
 
 
 def test_sync_varianti_singole_calculates_unit_prices_and_is_idempotent(app):
@@ -43,6 +44,15 @@ def test_sync_varianti_singole_calculates_unit_prices_and_is_idempotent(app):
 
         assert (create, updated, skipped) == (0, 1, 0)
         assert Product.query.filter_by(sku_barcode="TEST-001-SINGOLA").count() == 1
+
+        original_single_id = singola.id
+        sorgente.sku_barcode = "TEST-RENAMED"
+        db.session.commit()
+        create, updated, skipped = sync_varianti_singole()
+        assert (create, updated, skipped) == (0, 1, 0)
+        renamed = Product.query.filter_by(sku_barcode="TEST-RENAMED-SINGOLA").one()
+        assert renamed.id == original_single_id
+        assert Product.query.filter_by(confezione_origine_id=sorgente.id).count() == 1
 
 
 def test_cash_order_prioritizes_borbone_then_lollo(app):
@@ -105,6 +115,9 @@ def test_borbone_invoices_use_only_base_discount_and_retail_units():
         "44BDEK150N",
         "DGBBLU90N",
         "GRBRED006REDVENDING",
+        "44BORO150N",
+        "BLTBDEK100N",
+        "DGBDEK90N",
     }
     assert all(catalogo[sku]["quantita"] == 0 for sku in nuovi_sku)
     assert all(catalogo[sku]["aggiorna_costo_da_fattura"] for sku in nuovi_sku)
@@ -167,3 +180,15 @@ def test_new_invoice_products_start_at_zero_without_inventory_movements(app):
         assert second_result.exit_code == 0, second_result.output
         assert "0 rettifiche" in second_result.output
         assert InventoryMovement.query.filter_by(prodotto_id=prodotto.id).count() == 2
+
+        reconciliation = runner.invoke(args=["riconcilia-giacenze-20-luglio"])
+        assert reconciliation.exit_code == 0, reconciliation.output
+        for store_code, targets in GIACENZE_20_LUGLIO.items():
+            store = StoreLocation.query.filter_by(codice=store_code).one()
+            for reference, target in targets.items():
+                target_product = Product.query.filter_by(sku_barcode=reference).one()
+                inventory = StoreInventory.query.filter_by(
+                    punto_vendita_id=store.id,
+                    prodotto_id=target_product.id,
+                ).one()
+                assert inventory.quantita_disponibile == target

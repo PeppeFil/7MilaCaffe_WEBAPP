@@ -15,6 +15,13 @@ class Customer(db.Model):
     codice_fiscale = db.Column(db.String(20), unique=True, index=True)
     partita_iva = db.Column(db.String(20), unique=True, index=True)
     indirizzo = db.Column(db.String(255))
+    citta = db.Column(db.String(100), index=True)
+    compatibilita_preferita_id = db.Column(
+        db.Integer,
+        db.ForeignKey("compatibilities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     note = db.Column(db.Text)
     attivo = db.Column(db.Boolean, nullable=False, default=True, index=True)
     data_creazione = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
@@ -23,6 +30,7 @@ class Customer(db.Model):
     )
 
     vendite = db.relationship("Sale", back_populates="customer", lazy="select")
+    compatibilita_preferita = db.relationship("Compatibility", lazy="joined")
 
     @property
     def display_name(self) -> str:

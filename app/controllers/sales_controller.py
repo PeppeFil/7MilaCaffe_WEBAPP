@@ -28,11 +28,7 @@ def index():
 @sales_bp.route("/vendite/<int:sale_id>")
 @login_required
 def detail(sale_id):
-    punto_vendita = punto_vendita_corrente()
-    query = Sale.query.filter_by(id=sale_id)
-    if punto_vendita:
-        query = query.filter_by(punto_vendita_id=punto_vendita.id)
-    vendita = query.first_or_404()
+    vendita = Sale.query.filter_by(id=sale_id).first_or_404()
     return render_template("sales/detail.html", vendita=vendita)
 
 

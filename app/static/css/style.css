@@ -6492,3 +6492,92 @@ body:has(.customers-page) .main-content {
   .dashboard-payment-chart { max-width: 110px; justify-self: center; width: 100%; }
   .sales-filter-grid { grid-template-columns: 1fr; }
 }
+
+/* Identificazione del negozio e storico acquisti cliente */
+.sales-store {
+  align-items: center;
+  color: #eadcd1;
+  display: inline-flex;
+  gap: 0.45rem;
+  min-width: 150px;
+}
+.sales-store > i { color: #efb878; font-size: 1rem; }
+.sales-store > span { display: grid; line-height: 1.15; }
+.sales-store strong { color: #fff5ed; font-size: 0.8rem; }
+.sales-store small { color: #c5ae9c; font-size: 0.7rem; margin-top: 0.14rem; }
+.sale-detail-meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.sale-detail-meta-grid article small { color: #806d61; font-size: 0.72rem; line-height: 1.35; }
+
+.customers-address > span { display: grid; line-height: 1.25; }
+.customers-address small { color: var(--customers-muted); font-size: 0.7rem; }
+.customer-history-section { max-height: 560px; }
+.customer-history-content { max-height: 500px; overflow-y: auto; }
+.customer-history-loader {
+  align-items: center;
+  color: var(--customers-muted);
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  min-height: 95px;
+}
+.customer-history-summary {
+  background: #f4e9df;
+  border-bottom: 1px solid rgba(94, 64, 48, 0.11);
+  color: #665347;
+  display: flex;
+  font-size: 0.75rem;
+  justify-content: space-between;
+  padding: 0.65rem 0.8rem;
+}
+.customer-history-summary strong { color: #3e2b21; }
+.customer-history-list { display: grid; gap: 0.55rem; padding: 0.7rem; }
+.customer-history-sale {
+  background: #fff;
+  border: 1px solid rgba(94, 64, 48, 0.13);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.customer-history-sale summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+  list-style: none;
+  padding: 0.7rem;
+}
+.customer-history-sale summary::-webkit-details-marker { display: none; }
+.customer-history-sale summary > span:first-child { display: grid; gap: 0.2rem; min-width: 0; }
+.customer-history-sale summary > span:first-child strong { color: #3e2b21; font-size: 0.78rem; }
+.customer-history-sale summary small { color: var(--customers-muted); font-size: 0.68rem; }
+.customer-history-sale-total { align-items: flex-end; display: grid; flex-shrink: 0; gap: 0.2rem; justify-items: end; }
+.customer-history-sale-total > strong { color: #3e2b21; font-size: 0.9rem; }
+.customer-history-sale-total .sales-status-badge { font-size: 0.62rem; padding: 0.15rem 0.35rem; }
+.customer-history-items { border-top: 1px solid rgba(94, 64, 48, 0.1); }
+.customer-history-items > div {
+  align-items: center;
+  border-bottom: 1px solid rgba(94, 64, 48, 0.08);
+  display: flex;
+  gap: 0.6rem;
+  justify-content: space-between;
+  padding: 0.55rem 0.7rem;
+}
+.customer-history-items > div > span { display: grid; }
+.customer-history-items strong { color: #4b382d; font-size: 0.75rem; }
+.customer-history-items small { color: var(--customers-muted); font-size: 0.68rem; }
+.customer-history-sale footer {
+  align-items: center;
+  color: #806d61;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  gap: 0.65rem;
+  padding: 0.55rem 0.7rem;
+}
+.customer-history-sale footer a { color: #8a5838; font-weight: 700; margin-left: auto; }
+
+@media (max-width: 520px) {
+  .sale-detail-meta-grid { grid-template-columns: 1fr; }
+  .customer-history-summary { align-items: flex-start; flex-direction: column; gap: 0.25rem; }
+  .customer-history-sale summary { align-items: flex-start; }
+}

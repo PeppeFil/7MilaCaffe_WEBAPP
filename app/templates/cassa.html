@@ -163,7 +163,9 @@
             <div class="col-md-6"><label class="form-label" for="cashCustomerEmail">Email</label><input id="cashCustomerEmail" type="email" class="form-control" name="email" autocomplete="email"></div>
             <div class="col-md-6"><label class="form-label" for="cashCustomerFiscalCode">Codice fiscale</label><input id="cashCustomerFiscalCode" class="form-control" name="codice_fiscale" maxlength="20"></div>
             <div class="col-md-6"><label class="form-label" for="cashCustomerVat">Partita IVA</label><input id="cashCustomerVat" class="form-control" name="partita_iva" maxlength="20"></div>
-            <div class="col-12"><label class="form-label" for="cashCustomerAddress">Indirizzo</label><input id="cashCustomerAddress" class="form-control" name="indirizzo" autocomplete="street-address"></div>
+            <div class="col-md-6"><label class="form-label" for="cashCustomerAddress">Indirizzo</label><input id="cashCustomerAddress" class="form-control" name="indirizzo" autocomplete="street-address"></div>
+            <div class="col-md-6"><label class="form-label" for="cashCustomerCity">Città</label><input id="cashCustomerCity" class="form-control" value="{{ punto_vendita_corrente.comune if punto_vendita_corrente else '' }}" readonly><small class="form-text">Assegnata dal punto vendita corrente.</small></div>
+            <div class="col-12"><label class="form-label" for="cashCustomerCompatibility">Compatibilità preferita</label><select id="cashCustomerCompatibility" class="form-select" name="compatibilita_preferita_id"><option value="">Nessuna preferenza</option>{% for voce in compatibilita_clienti %}<option value="{{ voce.id }}">{{ voce.nome }}</option>{% endfor %}</select></div>
             <div class="col-12"><label class="form-label" for="cashCustomerNotes">Note</label><textarea id="cashCustomerNotes" class="form-control" name="note" rows="2"></textarea></div>
           </div>
           <div id="checkoutCustomerFormError" class="alert alert-danger mt-3 mb-0" role="alert" hidden></div>

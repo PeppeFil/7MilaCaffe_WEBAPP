@@ -106,6 +106,7 @@
           <tr>
             <th>ID</th>
             <th>Data e ora</th>
+            <th>Punto vendita</th>
             <th class="text-end">Totale</th>
             <th>Pagamento</th>
             <th>Cliente</th>
@@ -128,6 +129,7 @@
                 data-customer="{{ customer_name|lower }}">
               <td><strong class="sales-id">#{{ v.id }}</strong></td>
               <td><time datetime="{{ v.data_ora.isoformat() }}Z"><strong>{{ v.data_ora|roma_datetime }}</strong></time></td>
+              <td><span class="sales-store"><i class="bi bi-shop" aria-hidden="true"></i><span><strong>{{ v.punto_vendita.nome if v.punto_vendita else 'Non indicato' }}</strong>{% if v.punto_vendita %}<small>{{ v.punto_vendita.comune }}</small>{% endif %}</span></span></td>
               <td class="text-end"><strong class="sales-total">€ {{ "%.2f"|format(v.totale_netto) }}</strong><span class="sales-vat-note">IVA € {{ "%.2f"|format(v.totale_iva or 0) }}</span></td>
               <td>
                 <span class="sales-payment-method is-{{ v.metodo_pagamento }}">
