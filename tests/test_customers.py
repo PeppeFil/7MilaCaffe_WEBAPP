@@ -60,6 +60,28 @@ def test_customer_search_uses_contact_and_fiscal_fields(client):
     assert b"Cliente Ricerca" in response.data
 
 
+def test_new_customer_forms_are_compact_and_show_compatibility_early(client):
+    login(client, "operatore", "operator123")
+
+    page_response = client.get("/clienti/nuovo")
+    assert page_response.status_code == 200
+    assert b'name="ragione_sociale"' not in page_response.data
+    assert b'name="codice_fiscale"' not in page_response.data
+    assert b'name="partita_iva"' not in page_response.data
+    assert page_response.data.index(b'name="compatibilita_preferita_id"') < page_response.data.index(
+        b'name="telefono"'
+    )
+
+    cash_response = client.get("/cassa")
+    assert cash_response.status_code == 200
+    assert b'id="cashCustomerCompany"' not in cash_response.data
+    assert b'id="cashCustomerFiscalCode"' not in cash_response.data
+    assert b'id="cashCustomerVat"' not in cash_response.data
+    assert cash_response.data.index(b'id="cashCustomerCompatibility"') < cash_response.data.index(
+        b'id="cashCustomerPhone"'
+    )
+
+
 def test_new_customer_uses_current_store_city_and_preferred_compatibility(client):
     store = StoreLocation(
         codice="customer-vespri",
