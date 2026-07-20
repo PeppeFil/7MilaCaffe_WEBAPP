@@ -20,8 +20,8 @@ from app.models import (
 from app.services.inventory_service import registra_movimento
 
 
-# Foto reali di prodotto cercate online. Sono volutamente URL esterni, come richiesto:
-# il fallback grafico della cassa entra in funzione se un fornitore rimuove una foto.
+# Foto reali di prodotto. Gli articoli consegnati dal negozio usano asset locali;
+# per il catalogo storico rimangono alcuni URL esterni con fallback grafico in cassa.
 IMG_CAPSULE = "https://www.casacialde.it/upload/prodotti/1732878053.webp"
 IMG_CIALDE = "https://www.casacialde.it/upload/prodotti/1732698493.webp"
 IMG_DOLCE_GUSTO = "https://www.zicaffe.com/361-large_default/gustosa-dolce-gusto-caps.jpg"
@@ -51,6 +51,22 @@ IMMAGINI_PRODOTTI = {
     "8055176432348": _local_product_image("8055176432348"),
     "8055176432744": _local_product_image("8055176432744"),
     "8055176432751": "https://www.espressotoscano.it/media/catalog/product/cache/1/image/9df78eab33525d08d6e5fb8d27136e95/i/m/immagine_2026-03-26_160631.png",
+    "44BDEK150N": _local_product_image("44BDEK150N"),
+    "AMGINSENG6X16": _local_product_image("AMGINSENG6X16"),
+    "AMNOCCIOLINO6X16": _local_product_image("AMNOCCIOLINO6X16"),
+    "AMTHELIMONE6X16": _local_product_image("AMTHELIMONE6X16"),
+    "BLTBBLU100N": _local_product_image("BLTBBLU100N"),
+    "BLTBRED100N": _local_product_image("BLTBRED100N"),
+    "CFIBBLU48X10": _local_product_image("CFIBBLU48X10"),
+    "CFIBRED48X10": _local_product_image("CFIBRED48X10"),
+    "DGBBLU90N": _local_product_image("DGBBLU90N"),
+    "DGBRED90N": _local_product_image("DGBRED90N"),
+    "DGSUPERGIN4X16": _local_product_image("DGSUPERGIN4X16"),
+    "GRBBLU006SUPERVENDIN": _local_product_image("GRBBLU006SUPERVENDIN"),
+    "GRBRED006REDVENDING": _local_product_image("GRBRED006REDVENDING"),
+    "LVBORO100N": _local_product_image("LVBORO100N"),
+    "LVBROSSA100N": _local_product_image("LVBROSSA100N"),
+    "RESGINSEN6X10": _local_product_image("RESGINSEN6X10"),
     "8034028333880": "https://images.openfoodfacts.org/images/products/803/402/833/3880/front_it.3.400.jpg",
     "032415800016": _local_product_image("032415800016"),
     "032415800017": _local_product_image("032415800017"),
@@ -76,7 +92,7 @@ IMMAGINI_PRODOTTI = {
     "8029804003859": "https://ingrocaffe.it/images/prodotti/1520_1.jpg",
     "8029804016941": "https://ingrocaffe.it/images/prodotti/1798_1.jpg",
     "8029804010901": "https://ingrocaffe.it/images/prodotti/796_1.jpg",
-    "8029804009776": "https://coffeeshopitalia.com/cdn/shop/files/Screenshot_2023-08-27_alle_11.31.29.png?height=628&pad_color=ffffff&v=1693128703&width=1200",
+    "8029804009776": _local_product_image("8029804009776"),
     "DOG48G": "https://www.zicaffe.com/361-large_default/capsula-gustosa-dolce-gusto.jpg",
     "CLA50G": "https://www.zicaffe.com/364-large_default/capsula-gustosa-a-modo-mio.jpg",
     "CNE50G": "https://www.zicaffe.com/358-large_default/capsula-gustosa-nespresso.jpg",

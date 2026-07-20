@@ -12,6 +12,7 @@ from app.models import (
 )
 from app.services.catalog_service import (
     CATALOGO_REALE,
+    IMMAGINI_PRODOTTI,
     ULTIMO_IMPORT_BORBONE_SKU,
     _sku_singola,
     sync_catalogo_reale,
@@ -124,6 +125,34 @@ def test_borbone_invoices_use_only_base_discount_and_retail_units():
     assert all(row["category"] != "Capsule solubili" for row in CATALOGO_REALE)
 
 
+def test_supplied_product_images_are_mapped_by_sku():
+    expected_skus = {
+        "44BDEK150N",
+        "8029804009776",
+        "AMGINSENG6X16",
+        "AMNOCCIOLINO6X16",
+        "AMTHELIMONE6X16",
+        "BLTBBLU100N",
+        "BLTBRED100N",
+        "CFIBBLU48X10",
+        "CFIBRED48X10",
+        "DGBBLU90N",
+        "DGBRED90N",
+        "DGSUPERGIN4X16",
+        "GRBBLU006SUPERVENDIN",
+        "GRBRED006REDVENDING",
+        "LVBORO100N",
+        "LVBROSSA100N",
+        "RESGINSEN6X10",
+    }
+    catalogo = {row["barcode"]: row for row in CATALOGO_REALE}
+
+    for sku in expected_skus:
+        expected_url = f"/static/img/products/{sku}.webp"
+        assert IMMAGINI_PRODOTTI[sku] == expected_url
+        assert catalogo[sku]["image"] == expected_url
+
+
 def test_new_invoice_products_start_at_zero_without_inventory_movements(app):
     with app.app_context():
         db.session.add_all(
@@ -154,6 +183,30 @@ def test_new_invoice_products_start_at_zero_without_inventory_movements(app):
         db.session.commit()
 
         sync_catalogo_reale()
+        sync_varianti_singole()
+
+        for sku in (
+            "44BDEK150N",
+            "8029804009776",
+            "BLTBBLU100N",
+            "BLTBRED100N",
+            "CFIBBLU48X10",
+            "CFIBRED48X10",
+            "DGBBLU90N",
+            "DGBRED90N",
+            "LVBORO100N",
+            "LVBROSSA100N",
+        ):
+            confezione = Product.query.filter_by(sku_barcode=sku).one()
+            singola = Product.query.filter_by(sku_barcode=f"{sku}-SINGOLA").one()
+            assert singola.immagine_url == confezione.immagine_url
+
+        assert Product.query.filter_by(
+            sku_barcode="AMGINSENG6X16-SINGOLA"
+        ).one_or_none() is None
+        assert Product.query.filter_by(
+            sku_barcode="GRBBLU006SUPERVENDIN-SINGOLA"
+        ).one_or_none() is None
 
         prodotto = Product.query.filter_by(sku_barcode="REBDEK100N").one()
         assert prodotto.quantita_disponibile == 0
