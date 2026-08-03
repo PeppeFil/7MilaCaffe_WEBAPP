@@ -245,13 +245,13 @@ def _borbone_product(
         image,
     )
     row["aggiorna_costo_da_fattura"] = True
-    row["documento_origine"] = "Fatture e conferme d'ordine Borbone aprile-giugno 2026"
+    row["documento_origine"] = "Fatture e conferme d'ordine Borbone aprile-luglio 2026"
     return row
 
 
 CATALOGO_REALE = [
     # Caffe Borbone. Prezzo di listino meno il solo sconto base del 5%, poi IVA.
-    _product("8034028330636", "Respresso Borbone Nera", "Caffe Borbone", "Caffe Borbone SRL", "Capsule", "Nespresso", "100 capsule", "11.49", 16, IMG_CAPSULE),
+    _borbone_product("8034028330636", "Respresso Borbone Nera", "Capsule", "Nespresso", "100 capsule", "13.00", 16, IMG_CAPSULE),
     _borbone_product("8034028336706", "Respresso Borbone Red", "Capsule", "Nespresso", "100 capsule", "13.64", 16, IMG_CAPSULE),
     _borbone_product("8034028330476", "Respresso Borbone Blu", "Capsule", "Nespresso", "100 capsule", "14.15", 32, IMG_CAPSULE),
     _borbone_product("8034028330643", "Respresso Borbone Oro", "Capsule", "Nespresso", "100 capsule", "15.27", 16, IMG_CAPSULE),
@@ -284,11 +284,14 @@ CATALOGO_REALE = [
     _borbone_product("DGBBLU90N", "Borbone Dolce Gusto Blu 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80"),
     _borbone_product("DGBRED90N", "Borbone Dolce Gusto Red 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80"),
     _borbone_product("DGBDEK90N", "Borbone Dolce Gusto Dek 90", "Capsule", "Dolce Gusto", "90 capsule", "12.80", image=IMG_DOLCE_GUSTO),
+    _borbone_product("DGBBLU4X16N", "Borbone Dolce Gusto Blu 16", "Capsule", "Dolce Gusto", "16 capsule", "9.09", confezioni_per_collo=4),
+    _borbone_product("DGBROSSA4X16N", "Borbone Dolce Gusto Red 16", "Capsule", "Dolce Gusto", "16 capsule", "9.09", confezioni_per_collo=4),
     _borbone_product("CFIBBLU48X10", "Borbone Caffitaly Blu", "Capsule", "Caffitaly", "10 capsule", "126.64", confezioni_per_collo=48),
     _borbone_product("CFIBRED48X10", "Borbone Caffitaly Rossa", "Capsule", "Caffitaly", "10 capsule", "122.05", confezioni_per_collo=48),
     _borbone_product("GRBRED006REDVENDING", "Borbone Grani Red Vending", "Grani", "Grani", "1 kg", "60.96", confezioni_per_collo=6),
     _borbone_product("GRBBLU006SUPERVENDIN", "Borbone Grani Supervending", "Grani", "Grani", "1 kg", "65.83", confezioni_per_collo=6),
     _borbone_product("DGSUPERGIN4X16", "Borbone Super Ginseng Dolce Gusto", "Solubili", "Dolce Gusto", "16 capsule", "14.04", confezioni_per_collo=4),
+    _borbone_product("DGNOCCIOLONE4X16", "Borbone Nocciolone Dolce Gusto", "Solubili", "Dolce Gusto", "16 capsule", "14.04", confezioni_per_collo=4),
     _borbone_product("AMGINSENG6X16", "Borbone Ginseng A Modo Mio", "Solubili", "Lavazza A Modo Mio", "16 capsule", "15.73", confezioni_per_collo=6),
     _borbone_product("RESGINSEN6X10", "Borbone Ginseng Respresso", "Solubili", "Nespresso", "10 capsule", "9.95", confezioni_per_collo=6),
     _borbone_product("AMTHELIMONE6X16", "Borbone Te al Limone A Modo Mio", "Solubili", "Lavazza A Modo Mio", "16 capsule", "15.73", confezioni_per_collo=6),

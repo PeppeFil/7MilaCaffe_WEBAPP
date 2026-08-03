@@ -5,7 +5,7 @@ from flask.cli import with_appcontext
 from sqlalchemy import func
 
 from .extensions import db
-from .models import Product, Role, StoreLocation, User
+from .models import InventoryMovement, Product, Role, StoreLocation, User
 from .models.constants import RUOLO_ADMIN
 from .services.audit_service import registra_attivita
 from .services.catalog_service import (
@@ -22,6 +22,7 @@ def register_commands(app) -> None:
     app.cli.add_command(import_catalogo_reale)
     app.cli.add_command(imposta_giacenza_ultimo_import)
     app.cli.add_command(riconcilia_giacenze_20_luglio)
+    app.cli.add_command(carica_ordini_borbone_luglio_2026)
 
 
 GIACENZE_20_LUGLIO = {
@@ -73,6 +74,49 @@ GIACENZE_20_LUGLIO = {
         "BLTBRED100N": 8,
         "BLTBBLU100N": 8,
         "BLTBDEK100N": 3,
+    },
+}
+
+
+# Ogni riga contiene: SKU del documento, SKU interno, colli ricevuti e
+# confezioni vendibili contenute in ciascun collo. Le quantità registrate a
+# magazzino sono sempre espresse nell'unità venduta dall'applicazione.
+ORDINI_BORBONE_LUGLIO_2026 = {
+    "283447": {
+        "punto_vendita": "via-pepoli",
+        "righe": (
+            ("REBRED100N", "8034028336706", 16, 1),
+            ("AMSNERA100NDONCARLO", "8034028330674", 64, 1),
+            ("AMSRED100NDONCARLO", "8034028330698", 64, 1),
+            ("AMSBLU100NDONCARLO", "8034028330483", 64, 1),
+            ("44BBLU150N", "8034028330506", 20, 1),
+            ("DGBBLU90N", "DGBBLU90N", 10, 1),
+            ("DGBBLU4X16N", "DGBBLU4X16N", 10, 4),
+            ("DGBRED90N", "DGBRED90N", 10, 1),
+            ("DGBROSSA4X16N", "DGBROSSA4X16N", 10, 4),
+            ("44SRED150+20NDREGIN", "DONNAREGINA170", 20, 1),
+            ("DGSUPERGIN4X16", "DGSUPERGIN4X16", 4, 4),
+            ("GINSENGWEB4X18", "8034028333880", 3, 1),
+            ("AMGINSENG6X16", "AMGINSENG6X16", 15, 6),
+        ),
+    },
+    "283449": {
+        "punto_vendita": "via-vespri",
+        "righe": (
+            ("44BRED150N", "8034028330827", 20, 1),
+            ("44BBLU150N", "8034028330506", 20, 1),
+            ("REBNERA100N", "8034028330636", 16, 1),
+            ("REBBLU100N", "8034028330476", 16, 1),
+            ("AMSNERA100NDONCARLO", "8034028330674", 48, 1),
+            ("AMSRED100NDONCARLO", "8034028330698", 48, 1),
+            ("AMSBLU100NDONCARLO", "8034028330483", 48, 1),
+            ("AMSDEK100NDONCARLO", "AMSDEK100NDONCARLO", 16, 1),
+            ("AMCOMPOSTABORO100N", "8034028338014", 16, 1),
+            ("DGSUPERGIN4X16", "DGSUPERGIN4X16", 4, 4),
+            ("DGNOCCIOLONE4X16", "DGNOCCIOLONE4X16", 4, 4),
+            ("GINSENGWEB4X18", "8034028333880", 4, 1),
+            ("AMGINSENG6X16", "AMGINSENG6X16", 15, 6),
+        ),
     },
 }
 
@@ -293,4 +337,108 @@ def riconcilia_giacenze_20_luglio() -> None:
     click.echo(
         f"Riconciliazione completata: {movimenti_creati} rettifiche, "
         f"{articoli_invariati} articoli gia corretti."
+    )
+
+
+@click.command("carica-ordini-borbone-luglio-2026")
+@with_appcontext
+def carica_ordini_borbone_luglio_2026() -> None:
+    """Carica in modo idempotente gli ordini Borbone 283447 e 283449."""
+    sync_catalogo_reale()
+    sync_varianti_singole()
+
+    punti_vendita = {
+        punto.codice: punto
+        for punto in StoreLocation.query.filter(
+            StoreLocation.codice.in_(
+                {
+                    ordine["punto_vendita"]
+                    for ordine in ORDINI_BORBONE_LUGLIO_2026.values()
+                }
+            )
+        ).all()
+    }
+    negozi_mancanti = sorted(
+        {
+            ordine["punto_vendita"]
+            for ordine in ORDINI_BORBONE_LUGLIO_2026.values()
+        }
+        - set(punti_vendita)
+    )
+    if negozi_mancanti:
+        raise click.ClickException(
+            "Punti vendita non trovati: " + ", ".join(negozi_mancanti)
+        )
+
+    sku_richiesti = {
+        sku_interno
+        for ordine in ORDINI_BORBONE_LUGLIO_2026.values()
+        for _, sku_interno, _, _ in ordine["righe"]
+    }
+    prodotti = Product.query.filter(Product.sku_barcode.in_(sku_richiesti)).all()
+    prodotti_per_sku = {prodotto.sku_barcode: prodotto for prodotto in prodotti}
+    articoli_mancanti = sorted(sku_richiesti - set(prodotti_per_sku))
+    if articoli_mancanti:
+        raise click.ClickException(
+            "Articoli non trovati: " + ", ".join(articoli_mancanti)
+        )
+
+    operatore = User.query.filter(
+        func.lower(User.username) == "admin", User.attivo.is_(True)
+    ).first()
+    if not operatore:
+        raise click.ClickException("Utente admin attivo non disponibile.")
+
+    movimenti_creati = 0
+    righe_gia_caricate = 0
+    for numero_documento, ordine in ORDINI_BORBONE_LUGLIO_2026.items():
+        punto_vendita = punti_vendita[ordine["punto_vendita"]]
+        riferimento = f"ordine-borbone:{numero_documento}"
+        movimenti_documento = 0
+        for sku_documento, sku_interno, colli, confezioni_per_collo in ordine["righe"]:
+            prodotto = prodotti_per_sku[sku_interno]
+            gia_caricato = InventoryMovement.query.filter_by(
+                tipo_movimento="carico",
+                prodotto_id=prodotto.id,
+                punto_vendita_id=punto_vendita.id,
+                riferimento_entita=riferimento,
+            ).first()
+            if gia_caricato:
+                righe_gia_caricate += 1
+                continue
+
+            quantita_vendibile = colli * confezioni_per_collo
+            registra_movimento(
+                prodotto=prodotto,
+                tipo_movimento="carico",
+                quantita=quantita_vendibile,
+                operatore_id=operatore.id,
+                motivo=f"Carico ordine Caffe Borbone n. {numero_documento}",
+                riferimento_entita=riferimento,
+                note=(
+                    f"SKU documento {sku_documento}: {colli} CT x "
+                    f"{confezioni_per_collo} confezione/i vendibili"
+                ),
+                punto_vendita_id=punto_vendita.id,
+            )
+            movimenti_creati += 1
+            movimenti_documento += 1
+
+        if movimenti_documento:
+            registra_attivita(
+                utente_id=operatore.id,
+                azione="carico_ordine_fornitore",
+                entita_tipo="ordine_fornitore",
+                entita_id=numero_documento,
+                dettagli=(
+                    f"Ordine Borbone {numero_documento}: "
+                    f"{movimenti_documento} righe caricate in "
+                    f"{punto_vendita.nome}."
+                ),
+            )
+
+    db.session.commit()
+    click.echo(
+        f"Ordini Borbone caricati: {movimenti_creati} movimenti creati, "
+        f"{righe_gia_caricate} righe gia presenti."
     )

@@ -18,7 +18,8 @@ from app.services.catalog_service import (
     sync_catalogo_reale,
     sync_varianti_singole,
 )
-from app.cli import GIACENZE_20_LUGLIO
+from app.cli import GIACENZE_20_LUGLIO, ORDINI_BORBONE_LUGLIO_2026
+from app.services.store_service import quantita_fisica
 
 
 def test_sync_varianti_singole_calculates_unit_prices_and_is_idempotent(app):
@@ -245,3 +246,93 @@ def test_new_invoice_products_start_at_zero_without_inventory_movements(app):
                     prodotto_id=target_product.id,
                 ).one()
                 assert inventory.quantita_disponibile == target
+
+
+def test_july_borbone_orders_load_sellable_units_once_per_store(app):
+    with app.app_context():
+        db.session.add_all(
+            [
+                StoreLocation(
+                    codice="via-pepoli",
+                    nome="Via Pepoli",
+                    indirizzo="Via Pepoli 198",
+                    cap="91100",
+                    comune="Trapani",
+                    provincia="TP",
+                    ragione_sociale="Pepoli",
+                    partita_iva="00000000001",
+                ),
+                StoreLocation(
+                    codice="via-vespri",
+                    nome="Via Vespri",
+                    indirizzo="Via Vespri 235",
+                    cap="91019",
+                    comune="Valderice",
+                    provincia="TP",
+                    ragione_sociale="Vespri",
+                    partita_iva="00000000002",
+                ),
+            ]
+        )
+        db.session.add(VatRate(nome="IVA 10%", aliquota=10, attiva=True))
+        db.session.commit()
+        sync_catalogo_reale()
+
+        punti_vendita = {
+            punto.codice: punto for punto in StoreLocation.query.all()
+        }
+        sku_richiesti = {
+            sku_interno
+            for ordine in ORDINI_BORBONE_LUGLIO_2026.values()
+            for _, sku_interno, _, _ in ordine["righe"]
+        }
+        prodotti = {
+            prodotto.sku_barcode: prodotto
+            for prodotto in Product.query.filter(
+                Product.sku_barcode.in_(sku_richiesti)
+            ).all()
+        }
+        giacenze_iniziali = {
+            (numero, sku): quantita_fisica(
+                prodotti[sku], punti_vendita[ordine["punto_vendita"]].id
+            )
+            for numero, ordine in ORDINI_BORBONE_LUGLIO_2026.items()
+            for _, sku, _, _ in ordine["righe"]
+        }
+
+        runner = app.test_cli_runner()
+        result = runner.invoke(args=["carica-ordini-borbone-luglio-2026"])
+        assert result.exit_code == 0, result.output
+        assert "26 movimenti creati, 0 righe gia presenti" in result.output
+
+        for numero, ordine in ORDINI_BORBONE_LUGLIO_2026.items():
+            punto_vendita = punti_vendita[ordine["punto_vendita"]]
+            for _, sku, colli, confezioni_per_collo in ordine["righe"]:
+                assert quantita_fisica(prodotti[sku], punto_vendita.id) == (
+                    giacenze_iniziali[(numero, sku)]
+                    + colli * confezioni_per_collo
+                )
+            assert InventoryMovement.query.filter_by(
+                tipo_movimento="carico",
+                punto_vendita_id=punto_vendita.id,
+                riferimento_entita=f"ordine-borbone:{numero}",
+            ).count() == len(ordine["righe"])
+
+        assert Product.query.filter_by(sku_barcode="DGBBLU4X16N").one().prezzo_acquisto == Decimal(
+            "2.633828"
+        )
+        assert Product.query.filter_by(sku_barcode="DGNOCCIOLONE4X16").one().prezzo_acquisto == Decimal(
+            "3.667950"
+        )
+        assert Product.query.filter_by(sku_barcode="8034028330636").one().prezzo_acquisto == Decimal(
+            "15.067000"
+        )
+
+        second_result = runner.invoke(args=["carica-ordini-borbone-luglio-2026"])
+        assert second_result.exit_code == 0, second_result.output
+        assert "0 movimenti creati, 26 righe gia presenti" in second_result.output
+        assert InventoryMovement.query.filter(
+            InventoryMovement.riferimento_entita.in_(
+                ["ordine-borbone:283447", "ordine-borbone:283449"]
+            )
+        ).count() == 26
