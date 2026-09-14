@@ -18,7 +18,11 @@ from app.services.catalog_service import (
     sync_catalogo_reale,
     sync_varianti_singole,
 )
-from app.cli import GIACENZE_20_LUGLIO, ORDINI_BORBONE_LUGLIO_2026
+from app.cli import (
+    FATTURE_BORBONE_SETTEMBRE_2026,
+    GIACENZE_20_LUGLIO,
+    ORDINI_BORBONE_LUGLIO_2026,
+)
 from app.services.store_service import quantita_fisica
 
 
@@ -336,3 +340,131 @@ def test_july_borbone_orders_load_sellable_units_once_per_store(app):
                 ["ordine-borbone:283447", "ordine-borbone:283449"]
             )
         ).count() == 26
+
+
+def test_september_borbone_invoices_add_or_replace_stock_idempotently(app):
+    with app.app_context():
+        db.session.add_all(
+            [
+                StoreLocation(
+                    codice="via-pepoli",
+                    nome="Via Pepoli",
+                    indirizzo="Via Pepoli 198",
+                    cap="91100",
+                    comune="Trapani",
+                    provincia="TP",
+                    ragione_sociale="Pepoli",
+                    partita_iva="00000000001",
+                ),
+                StoreLocation(
+                    codice="via-vespri",
+                    nome="Via Vespri",
+                    indirizzo="Via Vespri 235",
+                    cap="91019",
+                    comune="Valderice",
+                    provincia="TP",
+                    ragione_sociale="Vespri",
+                    partita_iva="00000000002",
+                ),
+            ]
+        )
+        db.session.add(VatRate(nome="IVA 10%", aliquota=10, attiva=True))
+        db.session.commit()
+        sync_catalogo_reale()
+
+        punti_vendita = {
+            punto.codice: punto for punto in StoreLocation.query.all()
+        }
+        sku_richiesti = {
+            sku_interno
+            for fattura in FATTURE_BORBONE_SETTEMBRE_2026.values()
+            for _, sku_interno, _, _ in fattura["righe"]
+        }
+        prodotti = {
+            prodotto.sku_barcode: prodotto
+            for prodotto in Product.query.filter(
+                Product.sku_barcode.in_(sku_richiesti)
+            ).all()
+        }
+
+        # Valderice: un valore provvisorio alto va sostituito, mentre 69 va
+        # mantenuto e incrementato. A Trapani anche 99 deve essere sommato.
+        casi_iniziali = (
+            ("via-vespri", "8034028330780", 99),
+            ("via-vespri", "8034028330827", 69),
+            ("via-pepoli", "8034028336706", 99),
+        )
+        for codice_negozio, sku, quantita in casi_iniziali:
+            punto_vendita = punti_vendita[codice_negozio]
+            prodotto = prodotti[sku]
+            giacenza = StoreInventory.query.filter_by(
+                punto_vendita_id=punto_vendita.id,
+                prodotto_id=prodotto.id,
+            ).first()
+            if not giacenza:
+                giacenza = StoreInventory(
+                    punto_vendita_id=punto_vendita.id,
+                    prodotto_id=prodotto.id,
+                    quantita_minima_alert=prodotto.quantita_minima_alert,
+                )
+                db.session.add(giacenza)
+            giacenza.quantita_disponibile = quantita
+        db.session.commit()
+
+        giacenze_iniziali = {
+            (numero, sku): quantita_fisica(
+                prodotti[sku], punti_vendita[fattura["punto_vendita"]].id
+            )
+            for numero, fattura in FATTURE_BORBONE_SETTEMBRE_2026.items()
+            for _, sku, _, _ in fattura["righe"]
+        }
+
+        runner = app.test_cli_runner()
+        preview = runner.invoke(
+            args=["carica-fatture-borbone-settembre-2026", "--dry-run"]
+        )
+        assert preview.exit_code == 0, preview.output
+        assert "database non e stato modificato" in preview.output
+        assert InventoryMovement.query.filter(
+            InventoryMovement.riferimento_entita.like("fattura-borbone:%")
+        ).count() == 0
+
+        result = runner.invoke(args=["carica-fatture-borbone-settembre-2026"])
+        assert result.exit_code == 0, result.output
+        assert "38 movimenti creati (1 rettifiche)" in result.output
+
+        for numero, fattura in FATTURE_BORBONE_SETTEMBRE_2026.items():
+            punto_vendita = punti_vendita[fattura["punto_vendita"]]
+            soglia = fattura["sostituisci_se_almeno"]
+            for _, sku, colli, confezioni_per_collo in fattura["righe"]:
+                quantita_fattura = colli * confezioni_per_collo
+                quantita_iniziale = giacenze_iniziali[(numero, sku)]
+                quantita_attesa = (
+                    quantita_fattura
+                    if soglia is not None and quantita_iniziale >= soglia
+                    else quantita_iniziale + quantita_fattura
+                )
+                assert quantita_fisica(
+                    prodotti[sku], punto_vendita.id
+                ) == quantita_attesa
+
+        assert Product.query.filter_by(
+            sku_barcode="THELIMON4X16DOLCEGUS"
+        ).one().prezzo_acquisto == Decimal("3.667950")
+        assert Product.query.filter_by(
+            sku_barcode="DGCAMOMILLA4X16"
+        ).one().prezzo_acquisto == Decimal("3.667950")
+
+        second_result = runner.invoke(
+            args=["carica-fatture-borbone-settembre-2026"]
+        )
+        assert second_result.exit_code == 0, second_result.output
+        assert "0 movimenti creati (0 rettifiche), 38 righe gia presenti" in second_result.output
+        assert InventoryMovement.query.filter(
+            InventoryMovement.riferimento_entita.in_(
+                [
+                    "fattura-borbone:1000022858",
+                    "fattura-borbone:1000022859",
+                ]
+            )
+        ).count() == 38

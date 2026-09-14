@@ -23,6 +23,7 @@ def register_commands(app) -> None:
     app.cli.add_command(imposta_giacenza_ultimo_import)
     app.cli.add_command(riconcilia_giacenze_20_luglio)
     app.cli.add_command(carica_ordini_borbone_luglio_2026)
+    app.cli.add_command(carica_fatture_borbone_settembre_2026)
 
 
 GIACENZE_20_LUGLIO = {
@@ -116,6 +117,66 @@ ORDINI_BORBONE_LUGLIO_2026 = {
             ("DGNOCCIOLONE4X16", "DGNOCCIOLONE4X16", 4, 4),
             ("GINSENGWEB4X18", "8034028333880", 4, 1),
             ("AMGINSENG6X16", "AMGINSENG6X16", 15, 6),
+        ),
+    },
+}
+
+
+# Ogni riga contiene: SKU del documento, SKU interno, colli ricevuti e
+# confezioni vendibili per collo. Le macchine omaggio e le pedane non sono
+# articoli di magazzino e sono quindi escluse.
+FATTURE_BORBONE_SETTEMBRE_2026 = {
+    "1000022858": {
+        "punto_vendita": "via-pepoli",
+        "sostituisci_se_almeno": None,
+        "righe": (
+            ("REBRED100N", "8034028336706", 32, 1),
+            ("REBBLU100N", "8034028330476", 16, 1),
+            ("REBNERA100N", "8034028330636", 16, 1),
+            ("REBDEK100N", "REBDEK100N", 16, 1),
+            ("AMSNERA100NDONCARLO", "8034028330674", 16, 1),
+            ("AMSRED100NDONCARLO", "8034028330698", 16, 1),
+            ("AMSBLU100NDONCARLO", "8034028330483", 64, 1),
+            ("AMCOMPOSTABORO100N", "8034028338014", 16, 1),
+            ("44BBLU150N", "8034028330506", 50, 1),
+            ("44BRED150N", "8034028330827", 30, 1),
+            ("44BDEK150N", "44BDEK150N", 26, 1),
+            ("DGBBLU50N", "8055176432317", 40, 1),
+            ("DGBRED50N", "8055176432348", 20, 1),
+            ("BLTBBLU100N", "BLTBBLU100N", 20, 1),
+            ("BLTBRED100N", "BLTBRED100N", 20, 1),
+            ("LVBROSSA100N", "LVBROSSA100N", 5, 1),
+            ("THELIMON4X16DOLCEGUS", "THELIMON4X16DOLCEGUS", 4, 4),
+            ("DGCAMOMILLA4X16", "DGCAMOMILLA4X16", 4, 4),
+            ("44SRED150+20NDREGIN", "DONNAREGINA170", 20, 1),
+        ),
+    },
+    "1000022859": {
+        "punto_vendita": "via-vespri",
+        # Il conteggio presente a Valderice contiene vecchi valori provvisori
+        # molto alti. Per i soli pacchi con almeno 70 unita, la quantita della
+        # fattura sostituisce la giacenza anziche sommarsi ad essa.
+        "sostituisci_se_almeno": 70,
+        "righe": (
+            ("44BNERA150N", "8034028330780", 30, 1),
+            ("44BRED150N", "8034028330827", 25, 1),
+            ("44BBLU150N", "8034028330506", 45, 1),
+            ("44BDEK150N", "44BDEK150N", 26, 1),
+            ("REBNERA100N", "8034028330636", 16, 1),
+            ("REBBLU100N", "8034028330476", 16, 1),
+            ("AMSNERA100NDONCARLO", "8034028330674", 16, 1),
+            ("AMSRED100NDONCARLO", "8034028330698", 16, 1),
+            ("AMSBLU100NDONCARLO", "8034028330483", 32, 1),
+            ("AMSDEK100NDONCARLO", "AMSDEK100NDONCARLO", 16, 1),
+            ("AMCOMPOSTABORO100N", "8034028338014", 16, 1),
+            ("DGBBLU50N", "8055176432317", 20, 1),
+            ("DGBRED50N", "8055176432348", 10, 1),
+            ("BLTBBLU100N", "BLTBBLU100N", 20, 1),
+            ("BLTBRED100N", "BLTBRED100N", 10, 1),
+            ("DGSUPERGIN4X16", "DGSUPERGIN4X16", 4, 4),
+            ("DGNOCCIOLONE4X16", "DGNOCCIOLONE4X16", 4, 4),
+            ("GINSENGWEB4X18", "8034028333880", 4, 1),
+            ("44SRED150+20NDREGIN", "DONNAREGINA170", 20, 1),
         ),
     },
 }
@@ -440,5 +501,186 @@ def carica_ordini_borbone_luglio_2026() -> None:
     db.session.commit()
     click.echo(
         f"Ordini Borbone caricati: {movimenti_creati} movimenti creati, "
+        f"{righe_gia_caricate} righe gia presenti."
+    )
+
+
+@click.command("carica-fatture-borbone-settembre-2026")
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Mostra le variazioni previste senza modificare il database.",
+)
+@click.option(
+    "--skip-catalog-sync",
+    is_flag=True,
+    hidden=True,
+)
+@with_appcontext
+def carica_fatture_borbone_settembre_2026(
+    dry_run: bool, skip_catalog_sync: bool
+) -> None:
+    """Carica in modo idempotente le fatture Borbone del 09/09/2026."""
+    if not skip_catalog_sync and not dry_run:
+        sync_catalogo_reale()
+        sync_varianti_singole()
+
+    punti_vendita = {
+        punto.codice: punto
+        for punto in StoreLocation.query.filter(
+            StoreLocation.codice.in_(
+                {
+                    fattura["punto_vendita"]
+                    for fattura in FATTURE_BORBONE_SETTEMBRE_2026.values()
+                }
+            )
+        ).all()
+    }
+    negozi_mancanti = sorted(
+        {
+            fattura["punto_vendita"]
+            for fattura in FATTURE_BORBONE_SETTEMBRE_2026.values()
+        }
+        - set(punti_vendita)
+    )
+    if negozi_mancanti:
+        raise click.ClickException(
+            "Punti vendita non trovati: " + ", ".join(negozi_mancanti)
+        )
+
+    sku_richiesti = {
+        sku_interno
+        for fattura in FATTURE_BORBONE_SETTEMBRE_2026.values()
+        for _, sku_interno, _, _ in fattura["righe"]
+    }
+    prodotti = Product.query.filter(Product.sku_barcode.in_(sku_richiesti)).all()
+    prodotti_per_sku = {prodotto.sku_barcode: prodotto for prodotto in prodotti}
+    articoli_mancanti = sorted(sku_richiesti - set(prodotti_per_sku))
+    if articoli_mancanti:
+        raise click.ClickException(
+            "Articoli non trovati: " + ", ".join(articoli_mancanti)
+        )
+
+    singole_non_ammesse = sorted(
+        prodotto.sku_barcode
+        for prodotto in prodotti
+        if prodotto.is_variante_singola
+    )
+    if singole_non_ammesse:
+        raise click.ClickException(
+            "Le fatture contengono varianti singole non caricabili: "
+            + ", ".join(singole_non_ammesse)
+        )
+
+    operatore = User.query.filter(
+        func.lower(User.username) == "admin", User.attivo.is_(True)
+    ).first()
+    if not operatore:
+        raise click.ClickException("Utente admin attivo non disponibile.")
+
+    movimenti_creati = 0
+    righe_gia_caricate = 0
+    rettifiche_create = 0
+    try:
+        for numero_documento, fattura in FATTURE_BORBONE_SETTEMBRE_2026.items():
+            punto_vendita = punti_vendita[fattura["punto_vendita"]]
+            riferimento = f"fattura-borbone:{numero_documento}"
+            soglia_sostituzione = fattura["sostituisci_se_almeno"]
+            movimenti_documento = 0
+
+            click.echo(
+                f"Fattura {numero_documento} - {punto_vendita.nome}:"
+            )
+            for sku_documento, sku_interno, colli, confezioni_per_collo in fattura["righe"]:
+                prodotto = prodotti_per_sku[sku_interno]
+                gia_caricato = InventoryMovement.query.filter_by(
+                    prodotto_id=prodotto.id,
+                    punto_vendita_id=punto_vendita.id,
+                    riferimento_entita=riferimento,
+                ).first()
+                if gia_caricato:
+                    righe_gia_caricate += 1
+                    click.echo(f"  GIA CARICATO {prodotto.nome}")
+                    continue
+
+                quantita_fattura = colli * confezioni_per_collo
+                quantita_corrente = quantita_fisica(prodotto, punto_vendita.id)
+                sostituisci = (
+                    soglia_sostituzione is not None
+                    and quantita_corrente >= soglia_sostituzione
+                )
+                if sostituisci:
+                    tipo_movimento = "rettifica"
+                    quantita_movimento = quantita_fattura - quantita_corrente
+                    quantita_finale = quantita_fattura
+                    azione = (
+                        f"RETTIFICA {quantita_corrente} -> {quantita_finale}"
+                    )
+                else:
+                    tipo_movimento = "carico"
+                    quantita_movimento = quantita_fattura
+                    quantita_finale = quantita_corrente + quantita_fattura
+                    azione = (
+                        f"CARICO +{quantita_fattura}: "
+                        f"{quantita_corrente} -> {quantita_finale}"
+                    )
+
+                click.echo(f"  {azione} - {prodotto.nome}")
+                if dry_run:
+                    continue
+
+                registra_movimento(
+                    prodotto=prodotto,
+                    tipo_movimento=tipo_movimento,
+                    quantita=quantita_movimento,
+                    operatore_id=operatore.id,
+                    motivo=(
+                        f"Rettifica da fattura Caffe Borbone n. {numero_documento}"
+                        if sostituisci
+                        else f"Carico fattura Caffe Borbone n. {numero_documento}"
+                    ),
+                    riferimento_entita=riferimento,
+                    note=(
+                        f"SKU documento {sku_documento}: {colli} CT x "
+                        f"{confezioni_per_collo} confezione/i vendibili; "
+                        f"giacenza precedente {quantita_corrente}, "
+                        f"giacenza finale {quantita_finale}."
+                    ),
+                    punto_vendita_id=punto_vendita.id,
+                )
+                movimenti_creati += 1
+                movimenti_documento += 1
+                if sostituisci:
+                    rettifiche_create += 1
+
+            if movimenti_documento:
+                registra_attivita(
+                    utente_id=operatore.id,
+                    azione="carico_fattura_fornitore",
+                    entita_tipo="fattura_fornitore",
+                    entita_id=numero_documento,
+                    dettagli=(
+                        f"Fattura Borbone {numero_documento}: "
+                        f"{movimenti_documento} righe registrate in "
+                        f"{punto_vendita.nome}."
+                    ),
+                )
+
+        if dry_run:
+            db.session.rollback()
+            click.echo(
+                "Anteprima completata: il database non e stato modificato."
+            )
+            return
+
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+    click.echo(
+        "Fatture Borbone settembre caricate: "
+        f"{movimenti_creati} movimenti creati "
+        f"({rettifiche_create} rettifiche), "
         f"{righe_gia_caricate} righe gia presenti."
     )

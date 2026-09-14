@@ -245,7 +245,7 @@ def _borbone_product(
         image,
     )
     row["aggiorna_costo_da_fattura"] = True
-    row["documento_origine"] = "Fatture e conferme d'ordine Borbone aprile-luglio 2026"
+    row["documento_origine"] = "Fatture e conferme d'ordine Borbone aprile-settembre 2026"
     return row
 
 
@@ -292,6 +292,8 @@ CATALOGO_REALE = [
     _borbone_product("GRBBLU006SUPERVENDIN", "Borbone Grani Supervending", "Grani", "Grani", "1 kg", "65.83", confezioni_per_collo=6),
     _borbone_product("DGSUPERGIN4X16", "Borbone Super Ginseng Dolce Gusto", "Solubili", "Dolce Gusto", "16 capsule", "14.04", confezioni_per_collo=4),
     _borbone_product("DGNOCCIOLONE4X16", "Borbone Nocciolone Dolce Gusto", "Solubili", "Dolce Gusto", "16 capsule", "14.04", confezioni_per_collo=4),
+    _borbone_product("THELIMON4X16DOLCEGUS", "Borbone Te al Limone Dolce Gusto", "Solubili", "Dolce Gusto", "16 capsule", "14.04", confezioni_per_collo=4),
+    _borbone_product("DGCAMOMILLA4X16", "Borbone Camomilla e Melatonina Dolce Gusto", "Solubili", "Dolce Gusto", "16 capsule", "14.04", confezioni_per_collo=4),
     _borbone_product("AMGINSENG6X16", "Borbone Ginseng A Modo Mio", "Solubili", "Lavazza A Modo Mio", "16 capsule", "15.73", confezioni_per_collo=6),
     _borbone_product("RESGINSEN6X10", "Borbone Ginseng Respresso", "Solubili", "Nespresso", "10 capsule", "9.95", confezioni_per_collo=6),
     _borbone_product("AMTHELIMONE6X16", "Borbone Te al Limone A Modo Mio", "Solubili", "Lavazza A Modo Mio", "16 capsule", "15.73", confezioni_per_collo=6),
