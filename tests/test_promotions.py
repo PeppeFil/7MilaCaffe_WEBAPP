@@ -119,3 +119,43 @@ def test_promo_rejects_overselling_without_partial_sale(app,promo):
             crea_vendita(operatore_id=user_id,punto_vendita_id=store_id,items=[{"prodotto_id":product_id,"quantita":401}],sconto_tipo="nessuno",sconto_valore=0,metodo_pagamento="contanti")
         assert Sale.query.count() == 0
         assert StoreInventory.query.filter_by(punto_vendita_id=store_id,prodotto_id=product_id).one().quantita_disponibile == 400
+
+
+@pytest.mark.parametrize("destination", ["/cassa", "/dashboard", "/prodotti"])
+def test_promo_notice_shows_once_after_each_login(client, promo, destination):
+    assert b'id="borbonePromoModal"' not in client.get("/login").data
+    response = login(client, "operatore", "operator123", next_page=destination)
+    assert response.status_code == 200
+    assert b'id="borbonePromoModal"' in response.data
+    assert b"nespresso-borbone-nera-55-promo.webp" in response.data
+    for capsules in [55, 110, 220]:
+        assert f"{capsules} capsule".encode() in response.data
+    for price in [11, 18, 34]:
+        assert f"{price} &euro;".encode() in response.data
+    assert b'id="borbonePromoModal"' not in client.get("/cassa").data
+    token = get_csrf_token(client, "/cassa")
+    assert client.post("/logout", data={"csrf_token": token}).status_code == 302
+    assert b'id="borbonePromoModal"' in login(client, "operatore", "operator123").data
+
+
+def test_inactive_promo_is_not_announced(app, client, promo):
+    with app.app_context():
+        db.session.get(Product, promo[0]).attivo = False
+        db.session.commit()
+    assert b'id="borbonePromoModal"' not in login(client, "operatore", "operator123").data
+
+
+def test_cash_html_and_search_are_not_cached(client, promo):
+    login(client, "operatore", "operator123", follow_redirects=False)
+    page = client.get("/cassa")
+    assert "no-store" in page.headers.get("Cache-Control", "")
+    assert b"v=borbone55-popup-20261125" in page.data
+    response = client.get("/cassa/search?q=PROMO")
+    assert "no-store" in response.headers.get("Cache-Control", "")
+    product = response.get_json()[0]
+    assert product["promozione"]["prezzi"] == [
+        {"quantita": 4, "totale": 34},
+        {"quantita": 2, "totale": 18},
+        {"quantita": 1, "totale": 11},
+    ]
+    assert client.get(product["immagine_url"]).status_code == 200

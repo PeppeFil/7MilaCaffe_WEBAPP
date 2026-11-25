@@ -1,0 +1,36 @@
+<div class="modal fade promo-notice-modal" id="borbonePromoModal" tabindex="-1" aria-labelledby="borbonePromoTitle" aria-describedby="borbonePromoDescription" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="promo-notice-label">La promo da proporre in negozio</span>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi promozione"></button>
+      </div>
+      <div class="modal-body">
+        <div class="promo-notice-layout">
+          <figure class="promo-notice-photo">
+            <img src="{{ promo_accesso.prodotto.immagine_url }}" alt="Confezione Borbone Respresso Nera compatibile Nespresso" width="500" height="500">
+            <span class="product-promo-badge">PROMO</span>
+            <span class="product-gift-badge">{{ promo_accesso.etichetta }}</span>
+          </figure>
+          <div class="promo-notice-copy">
+            <p class="promo-notice-compatibility">Compatibile Nespresso</p>
+            <h2 id="borbonePromoTitle">Borbone Respresso Nera</h2>
+            <p id="borbonePromoDescription">50 + 5 capsule omaggio in ogni pacco.</p>
+            <dl class="promo-notice-prices">
+              {% for fascia in promo_accesso.prezzi|reverse %}
+                <div>
+                  <dt>{{ fascia.quantita }} {{ 'pacco' if fascia.quantita == 1 else 'pacchi' }}<span>{{ fascia.quantita * 55 }} capsule</span></dt>
+                  <dd>{{ "%.0f"|format(fascia.totale) }} &euro;</dd>
+                </div>
+              {% endfor %}
+            </dl>
+            <p class="promo-notice-hint">Lo sconto si applica automaticamente in cassa in base al numero di pacchi.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-coffee" data-bs-dismiss="modal">Ho capito</button>
+      </div>
+    </div>
+  </div>
+</div>

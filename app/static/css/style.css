@@ -3264,6 +3264,38 @@ body:has(.movements-page) .main-content {
   white-space: normal;
 }
 
+.promo-notice-modal .modal-content {
+  color: var(--coffee-900);
+  background: var(--cream-100);
+  border: 1px solid var(--cream-200);
+  border-radius: 1rem;
+}
+.promo-notice-modal .modal-header,
+.promo-notice-modal .modal-footer { border-color: var(--cream-200); }
+.promo-notice-modal .modal-header { padding: 1rem 1.5rem; }
+.promo-notice-modal .modal-body { padding: 1.5rem; }
+.promo-notice-label { color: #8f2525; font-weight: 700; }
+.promo-notice-layout { display: grid; grid-template-columns: 1fr 1.15fr; align-items: center; gap: 1.5rem; }
+.promo-notice-photo { position: relative; margin: 0; background: #fff; border-radius: 0.6rem; overflow: hidden; }
+.promo-notice-photo img { display: block; width: 100%; height: auto; }
+.promo-notice-photo .product-promo-badge { top: 0.7rem; left: 0.7rem; font-size: 0.85rem; }
+.promo-notice-photo .product-gift-badge { bottom: 0.7rem; left: 0.7rem; font-size: 0.85rem; }
+.promo-notice-copy h2 { font-family: "Fraunces", serif; font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.2; }
+.promo-notice-compatibility { color: var(--coffee-700); font-size: 0.9rem; margin: 0 0 0.4rem; }
+.promo-notice-prices { margin: 1.2rem 0; font-variant-numeric: tabular-nums; }
+.promo-notice-prices > div { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: 0.55rem 0; border-bottom: 1px solid #decbb8; }
+.promo-notice-prices dt { font-size: 1.1rem; font-weight: 600; }
+.promo-notice-prices dt span { display: block; font-size: 0.9rem; color: var(--coffee-700); font-weight: 400; }
+.promo-notice-prices dd { margin: 0; color: #8f2525; font-size: 2rem; font-weight: 700; white-space: nowrap; }
+.promo-notice-hint { color: var(--coffee-700); font-size: 0.9rem; margin: 0; }
+.promo-notice-modal .btn-coffee { min-width: 8rem; }
+@media (max-width: 575px) {
+  .promo-notice-modal .modal-body { padding: 1rem; }
+  .promo-notice-layout { grid-template-columns: 1fr; gap: 1rem; }
+  .promo-notice-photo { width: min(100%, 190px); justify-self: center; }
+  .promo-notice-prices { margin: 0.7rem 0; }
+}
+
 .product-stock {
   position: absolute;
   left: 0.28rem;

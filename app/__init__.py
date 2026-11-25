@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, abort, redirect, request, url_for
+from flask import Flask, abort, redirect, request, session, url_for
 from flask_login import current_user
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -51,24 +51,38 @@ def _init_extensions(app: Flask) -> None:
             if not validate_csrf_token(request_csrf_token(request)):
                 abort(400, description="CSRF token non valido.")
 
+    @app.after_request
+    def prevent_stale_authenticated_pages(response):
+        if current_user.is_authenticated and request.endpoint != "static":
+            response.headers["Cache-Control"] = "no-store, private"
+        return response
+
     @app.context_processor
     def inject_security_helpers():
-        from .models import StoreLocation
+        from .models import Product, StoreLocation
+        from .services.promotion_service import BORBONE_55_SKU, promozione_prodotto
         from .services.store_service import punto_vendita_corrente
         from .utils.timezones import utc_to_rome
 
         punti_vendita = []
+        promo_accesso = None
         if current_user.is_authenticated:
             punti_vendita = (
                 StoreLocation.query.filter_by(attivo=True)
                 .order_by(StoreLocation.nome.asc())
                 .all()
             )
+            if not session.get("promo_borbone_55_mostrata"):
+                prodotto = Product.query.filter_by(sku_barcode=BORBONE_55_SKU, attivo=True).first()
+                if prodotto:
+                    promo_accesso = {"prodotto": prodotto, **promozione_prodotto(prodotto)}
+                session["promo_borbone_55_mostrata"] = True
         return {
             "csrf_token": get_csrf_token,
             "punto_vendita_corrente": punto_vendita_corrente() if current_user.is_authenticated else None,
             "punti_vendita_disponibili": punti_vendita,
             "data_roma": utc_to_rome,
+            "promo_accesso": promo_accesso,
         }
 
     @app.template_filter("roma_datetime")
