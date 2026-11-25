@@ -122,7 +122,9 @@ def test_promo_rejects_overselling_without_partial_sale(app,promo):
 
 
 @pytest.mark.parametrize("destination", ["/cassa", "/dashboard", "/prodotti"])
-def test_promo_notice_shows_once_after_each_login(client, promo, destination):
+def test_promo_notice_respects_thirty_minutes_between_displays(client, promo, destination, monkeypatch):
+    clock = {"now": 1800000000}
+    monkeypatch.setattr("app.time", lambda: clock["now"], raising=False)
     assert b'id="borbonePromoModal"' not in client.get("/login").data
     response = login(client, "operatore", "operator123", next_page=destination)
     assert response.status_code == 200
@@ -134,9 +136,29 @@ def test_promo_notice_shows_once_after_each_login(client, promo, destination):
     for price in [11, 18, 34]:
         assert f"{price} &euro;".encode() in response.data
     assert b'id="borbonePromoModal"' not in client.get("/cassa").data
+    clock["now"] += 1799
+    assert b'id="borbonePromoModal"' not in client.get("/dashboard").data
+    clock["now"] += 1
+    assert b'id="borbonePromoModal"' in client.get(destination).data
+    assert b'id="borbonePromoModal"' not in client.get("/prodotti").data
     token = get_csrf_token(client, "/cassa")
     assert client.post("/logout", data={"csrf_token": token}).status_code == 302
-    assert b'id="borbonePromoModal"' in login(client, "operatore", "operator123").data
+    assert b'id="borbonePromoModal"' not in login(client, "operatore", "operator123").data
+    clock["now"] += 1800
+    assert b'id="borbonePromoModal"' in client.get("/cassa").data
+
+
+def test_partial_templates_and_search_do_not_start_promo_cooldown(app, client, promo, monkeypatch):
+    from flask import render_template_string
+
+    app.add_url_rule("/test-fragment", view_func=lambda: render_template_string("Solo contenuto"))
+    monkeypatch.setattr("app.time", lambda: 1800000000, raising=False)
+    login(client, "operatore", "operator123", follow_redirects=False)
+    assert client.get("/test-fragment").status_code == 200
+    assert client.get("/cassa/search?q=PROMO").status_code == 200
+    assert b'id="borbonePromoModal"' in client.get("/cassa").data
+    with client.session_transaction() as session:
+        assert session["promo_borbone_55_ultima_visualizzazione"] == 1800000000
 
 
 def test_inactive_promo_is_not_announced(app, client, promo):

@@ -1,4 +1,5 @@
 import os
+from time import time
 
 from flask import Flask, abort, redirect, request, session, url_for
 from flask_login import current_user
@@ -65,24 +66,32 @@ def _init_extensions(app: Flask) -> None:
         from .utils.timezones import utc_to_rome
 
         punti_vendita = []
-        promo_accesso = None
         if current_user.is_authenticated:
             punti_vendita = (
                 StoreLocation.query.filter_by(attivo=True)
                 .order_by(StoreLocation.nome.asc())
                 .all()
             )
-            if not session.get("promo_borbone_55_mostrata"):
-                prodotto = Product.query.filter_by(sku_barcode=BORBONE_55_SKU, attivo=True).first()
-                if prodotto:
-                    promo_accesso = {"prodotto": prodotto, **promozione_prodotto(prodotto)}
-                session["promo_borbone_55_mostrata"] = True
+
+        def avviso_promo_accesso():
+            if not current_user.is_authenticated:
+                return None
+            adesso = time()
+            ultima_visualizzazione = session.get("promo_borbone_55_ultima_visualizzazione")
+            if ultima_visualizzazione is not None and adesso - ultima_visualizzazione < 30 * 60:
+                return None
+            prodotto = Product.query.filter_by(sku_barcode=BORBONE_55_SKU, attivo=True).first()
+            if not prodotto:
+                return None
+            session["promo_borbone_55_ultima_visualizzazione"] = adesso
+            return {"prodotto": prodotto, **promozione_prodotto(prodotto)}
+
         return {
             "csrf_token": get_csrf_token,
             "punto_vendita_corrente": punto_vendita_corrente() if current_user.is_authenticated else None,
             "punti_vendita_disponibili": punti_vendita,
             "data_roma": utc_to_rome,
-            "promo_accesso": promo_accesso,
+            "avviso_promo_accesso": avviso_promo_accesso,
         }
 
     @app.template_filter("roma_datetime")

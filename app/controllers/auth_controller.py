@@ -22,7 +22,6 @@ def login():
         if utente:
             login_user(utente, remember=request.form.get("remember") == "1")
             session.pop("punto_vendita_id", None)
-            session.pop("promo_borbone_55_mostrata", None)
             registra_attivita(
                 utente_id=utente.id,
                 azione="accesso",
@@ -55,6 +54,5 @@ def logout():
     )
     logout_user()
     session.pop("punto_vendita_id", None)
-    session.pop("promo_borbone_55_mostrata", None)
     flash("Sessione terminata.", "info")
     return redirect(url_for("auth.login"))
