@@ -128,6 +128,7 @@ def test_promo_notice_shows_once_after_each_login(client, promo, destination):
     assert response.status_code == 200
     assert b'id="borbonePromoModal"' in response.data
     assert b"nespresso-borbone-nera-55-promo.webp" in response.data
+    assert b"PROMO <strong>NON VALIDA</strong> con la scheda cliente." in response.data
     for capsules in [55, 110, 220]:
         assert f"{capsules} capsule".encode() in response.data
     for price in [11, 18, 34]:
