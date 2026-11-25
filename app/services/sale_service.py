@@ -8,6 +8,7 @@ from app.extensions import db
 from app.models import Customer, Product, Sale, SaleItem, StoreInventory
 from app.services.audit_service import registra_attivita
 from app.services.inventory_service import apri_confezioni_necessarie, registra_movimento
+from app.services.promotion_service import totale_prodotto
 from app.services.store_service import (
     giacenza_o_crea,
     quantita_disponibile,
@@ -25,14 +26,12 @@ def _carica_e_blocca_prodotti(
     items: list[dict], punto_vendita_id: int | None
 ) -> list[tuple[Product, int]]:
     """Valida il carrello e blocca le righe stock in ordine deterministico."""
-    righe_input: list[tuple[int, int]] = []
     richieste = defaultdict(int)
     for item in items:
         prodotto_id = to_int(item.get("prodotto_id"))
         quantita = to_int(item.get("quantita"))
         if not prodotto_id or quantita <= 0:
             raise ValueError("Quantità riga non valida.")
-        righe_input.append((prodotto_id, quantita))
         richieste[prodotto_id] += quantita
 
     prodotti = (
@@ -114,7 +113,7 @@ def _carica_e_blocca_prodotti(
                 f"Disponibile: {disponibile}"
             )
 
-    return [(product_map[product_id], qty) for product_id, qty in righe_input]
+    return [(product_map[product_id], qty) for product_id, qty in richieste.items()]
 
 
 def crea_vendita(
@@ -144,8 +143,8 @@ def crea_vendita(
 
         prezzo_unitario = Decimal(str(prodotto.prezzo_vendita))
         costo_unitario = Decimal(str(prodotto.prezzo_acquisto))
-        subtotale = (prezzo_unitario * quantita).quantize(MONEY)
-        margine_riga = ((prezzo_unitario - costo_unitario) * quantita).quantize(MONEY)
+        subtotale = totale_prodotto(prodotto, quantita).quantize(MONEY)
+        margine_riga = (subtotale - costo_unitario * quantita).quantize(MONEY)
 
         righe_calcolate.append(
             {

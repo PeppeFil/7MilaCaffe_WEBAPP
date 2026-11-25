@@ -27,7 +27,10 @@
       <tbody>
         {% for r in vendita.righe %}
           <tr>
-            <td>{{ r.prodotto.nome if r.prodotto else '-' }}</td>
+            <td>{{ r.prodotto.nome if r.prodotto else '-' }}
+              {% set risparmio_promo = r.prezzo_unitario * r.quantita - r.subtotale %}
+              {% if risparmio_promo > 0 %}<br><small>Promo automatica: -EUR {{ "%.2f"|format(risparmio_promo) }}</small>{% endif %}
+            </td>
             <td>{{ r.quantita }}</td>
             <td>EUR {{ "%.2f"|format(r.prezzo_unitario) }}</td>
             <td>{{ "%.0f"|format(r.aliquota_iva_snapshot) }}%</td>

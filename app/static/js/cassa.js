@@ -58,6 +58,17 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function productTotal(product, quantity) {
+  if (!product.promozione) return Number(product.prezzo_vendita ?? product.prezzo_unitario) * quantity;
+  let total = 0;
+  for (const tier of product.promozione.prezzi) {
+    const groups = Math.floor(quantity / tier.quantita);
+    total += groups * tier.totale;
+    quantity %= tier.quantita;
+  }
+  return total;
+}
+
 function productImage(product, className = "product-image") {
   const name = escapeHtml(product.nome);
   if (!product.immagine_url) {
@@ -185,6 +196,7 @@ function renderProductGrid() {
       <article class="${classes.join(" ")}" data-product-card="${productId}" tabindex="${stock > 0 ? "0" : "-1"}" title="${escapeHtml(product.nome)}">
         <div class="product-media">
           ${productImage(product)}
+          ${product.promozione ? `<span class="product-promo-badge">PROMO</span><span class="product-gift-badge">${escapeHtml(product.promozione.etichetta)}</span>` : ""}
           ${quantity ? `<span class="product-selected-badge" aria-label="${quantity} nel carrello"><i class="bi bi-check-lg" aria-hidden="true"></i></span>` : ""}
           ${availabilityMarkup(stock)}
         </div>
@@ -192,6 +204,7 @@ function renderProductGrid() {
           <strong class="product-tile-name">${escapeHtml(product.nome)}</strong>
           <span class="product-tile-meta">${escapeHtml(product.marca)}</span>
           <span class="product-tile-format">${escapeHtml(product.formato_confezione || "Formato non indicato")}</span>
+          ${product.promozione ? `<span class="product-promo-prices">${escapeHtml(product.promozione.descrizione)}</span>` : ""}
           <div class="product-card-footer">
             <strong class="product-tile-price">${euro(product.prezzo_vendita)}</strong>
             ${quantityMarkup(product, quantity)}
@@ -215,6 +228,7 @@ window.addToCart = function addToCart(productId) {
     formato_confezione: product.formato_confezione || "",
     immagine_url: product.immagine_url || "",
     prezzo_unitario: Number(product.prezzo_vendita),
+    promozione: product.promozione || null,
     quantita: currentQty + 1,
     quantita_disponibile: stock,
     is_variante_singola: isSingleProduct(product),
@@ -236,6 +250,7 @@ function setCartQuantity(productId, quantity) {
     formato_confezione: product.formato_confezione || "",
     immagine_url: product.immagine_url || "",
     prezzo_unitario: Number(product.prezzo_vendita ?? product.prezzo_unitario),
+    promozione: product.promozione || null,
     quantita: next,
     quantita_disponibile: stock,
     is_variante_singola: true,
@@ -309,10 +324,11 @@ function renderCart() {
       <div class="cart-line-info">
         <strong title="${escapeHtml(row.nome)}">${escapeHtml(row.nome)}</strong>
         <small>${escapeHtml(row.formato_confezione || row.marca || "")}</small>
+        ${row.promozione && row.prezzo_unitario * row.quantita > productTotal(row, row.quantita) ? `<small class="cart-promo-saving">Promo automatica: -${euro(row.prezzo_unitario * row.quantita - productTotal(row, row.quantita))}</small>` : ""}
       </div>
       <button type="button" class="cart-remove" data-cart-action="remove" data-product-id="${Number(row.prodotto_id)}" aria-label="Rimuovi ${escapeHtml(row.nome)} dal carrello"><i class="bi bi-x-lg" aria-hidden="true"></i></button>
       ${cartQuantityMarkup(row)}
-      <strong class="cart-line-total">${euro(row.prezzo_unitario * row.quantita)}</strong>
+      <strong class="cart-line-total">${euro(productTotal(row, row.quantita))}</strong>
     </div>`).join("");
 
   renderProductGrid();
@@ -321,11 +337,12 @@ function renderCart() {
 
 function updateTotals() {
   const lordo = Object.values(state.cart).reduce(
-    (sum, row) => sum + row.prezzo_unitario * row.quantita,
+    (sum, row) => sum + productTotal(row, row.quantita),
     0,
   );
   let sconto = Math.max(0, Number(scontoValore.value || 0));
   if (scontoTipo.value === "percentuale") sconto = (lordo * sconto) / 100;
+  else if (scontoTipo.value !== "fisso") sconto = 0;
   totaleNettoView.textContent = euro(lordo - Math.min(sconto, lordo));
 }
 

@@ -18,6 +18,7 @@ from app.models import (
 )
 from app.models.constants import METODI_PAGAMENTO
 from app.services.sale_service import crea_vendita
+from app.services.promotion_service import promozione_prodotto
 from app.services.customer_service import create_customer, customer_error
 from app.services.store_service import mappa_disponibilita_vendibile, punto_vendita_corrente
 from app.utils.parsers import to_int
@@ -94,6 +95,7 @@ def _serialize_product(product: Product, quantita_disponibile: int | None = None
         "immagine_url": product.immagine_url or "",
         "aliquota_iva": float(product.vat_rate.aliquota) if product.vat_rate else 0,
         "is_variante_singola": product.is_variante_singola,
+        "promozione": promozione_prodotto(product),
     }
 
 

@@ -3227,6 +3227,43 @@ body:has(.movements-page) .main-content {
   font-size: 0.75rem;
 }
 
+.product-promo-badge,
+.product-gift-badge {
+  position: absolute;
+  left: 0.3rem;
+  padding: 0.28rem 0.45rem;
+  border-radius: 0.35rem;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.product-promo-badge {
+  top: 0.3rem;
+  background: #a51f26;
+  color: #fff;
+}
+
+.product-gift-badge {
+  bottom: 1.9rem;
+  background: #ffe18b;
+  color: #38230c;
+}
+
+.product-promo-prices {
+  color: #8f2525;
+  font-size: 0.68rem;
+  font-weight: 700;
+  white-space: normal;
+}
+
+.cart-line-info .cart-promo-saving {
+  color: #ffe18b;
+  font-weight: 700;
+  white-space: normal;
+}
+
 .product-stock {
   position: absolute;
   left: 0.28rem;

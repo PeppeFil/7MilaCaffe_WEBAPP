@@ -57,6 +57,8 @@
           <div>
             <strong>{{ r.prodotto.nome if r.prodotto else 'Prodotto non disponibile' }}</strong>
             <span>{{ r.quantita }} × € {{ "%.2f"|format(r.prezzo_unitario) }}</span>
+            {% set risparmio_promo = r.prezzo_unitario * r.quantita - r.subtotale %}
+            {% if risparmio_promo > 0 %}<small>Promo automatica: -EUR {{ "%.2f"|format(risparmio_promo) }}</small>{% endif %}
             <small>IVA {{ "%.0f"|format(r.aliquota_iva_snapshot) }}% inclusa · € {{ "%.2f"|format(r.totale_iva) }}</small>
             {% if current_user.has_role('Admin') %}
               <small>Costo snapshot € {{ "%.2f"|format(r.costo_unitario_snapshot) }} · Margine € {{ "%.2f"|format(r.margine_riga) }}</small>

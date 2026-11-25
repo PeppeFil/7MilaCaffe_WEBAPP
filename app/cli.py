@@ -1,11 +1,12 @@
 import os
+from decimal import Decimal
 
 import click
 from flask.cli import with_appcontext
 from sqlalchemy import func
 
 from .extensions import db
-from .models import InventoryMovement, Product, Role, StoreLocation, User
+from .models import ActivityLog, InventoryMovement, Product, Role, StoreLocation, User
 from .models.constants import RUOLO_ADMIN
 from .services.audit_service import registra_attivita
 from .services.catalog_service import (
@@ -14,6 +15,7 @@ from .services.catalog_service import (
     sync_varianti_singole,
 )
 from .services.inventory_service import registra_movimento
+from .services.promotion_service import BORBONE_55_SKU
 from .services.store_service import quantita_fisica
 
 
@@ -24,6 +26,64 @@ def register_commands(app) -> None:
     app.cli.add_command(riconcilia_giacenze_20_luglio)
     app.cli.add_command(carica_ordini_borbone_luglio_2026)
     app.cli.add_command(carica_fatture_borbone_settembre_2026)
+    app.cli.add_command(carica_promo_borbone_55)
+
+
+@click.command("carica-promo-borbone-55")
+@with_appcontext
+def carica_promo_borbone_55() -> None:
+    """Inserisce una sola volta i 540 pacchi promo, senza ricarichi ai successivi avvii."""
+    if ActivityLog.query.filter_by(azione="carico_promo_borbone_55", entita_id=BORBONE_55_SKU).first():
+        click.echo("Promo gia caricata: nessuna giacenza modificata.")
+        return
+    if Product.query.filter_by(sku_barcode=BORBONE_55_SKU).first():
+        raise click.ClickException("SKU promo gia presente senza registro di carico: verificare prima di procedere.")
+    base = Product.query.filter_by(sku_barcode="8034028330636").one_or_none()
+    admin = User.query.filter_by(username="admin", attivo=True).one_or_none()
+    stores = {s.codice: s for s in StoreLocation.query.filter(
+        StoreLocation.codice.in_(["via-pepoli", "via-vespri"]), StoreLocation.attivo.is_(True)
+    ).all()}
+    if not base or not admin or len(stores) != 2:
+        raise click.ClickException("Prodotto base, admin o punti vendita mancanti.")
+    if not base.vat_rate or not base.vat_rate.attiva or base.vat_rate.aliquota != 22:
+        raise click.ClickException("Aliquota IVA 22% del prodotto base non valida.")
+    try:
+        prodotto = Product(
+            nome="Respresso Borbone Nera PROMO 50 + 5",
+            categoria_id=base.categoria_id,
+            marca_id=base.marca_id,
+            vat_rate_id=base.vat_rate_id,
+            compatibilita_id=base.compatibilita_id,
+            fornitore_id=base.fornitore_id,
+            formato_confezione="55 capsule (50 + 5 omaggio)",
+            prezzo_acquisto=Decimal("7.16"),
+            prezzo_vendita=Decimal("11.00"),
+            quantita_disponibile=0,
+            quantita_minima_alert=10,
+            sku_barcode=BORBONE_55_SKU,
+            immagine_url="/static/img/products/nespresso-borbone-nera-55-promo.webp",
+            note="Promo richiesta 25/11/2026: 1 pacco 11 EUR, 2 pacchi 18 EUR, 4 pacchi 34 EUR. Costo concordato IVA inclusa 7,16 EUR. SKU interno provvisorio: barcode non fornito.",
+            attivo=True,
+        )
+        db.session.add(prodotto)
+        db.session.flush()
+        for code, quantity in [("via-pepoli", 400), ("via-vespri", 140)]:
+            registra_movimento(
+                prodotto=prodotto, tipo_movimento="carico", quantita=quantity,
+                operatore_id=admin.id, punto_vendita_id=stores[code].id,
+                motivo="Carico iniziale promo Borbone 50 + 5, su richiesta utente",
+                riferimento_entita="promo-borbone-55:2026-11-25",
+            )
+        registra_attivita(
+            utente_id=admin.id, azione="carico_promo_borbone_55", entita_tipo="product",
+            entita_id=BORBONE_55_SKU,
+            dettagli=f"Prodotto {prodotto.id}: carico iniziale 400 pacchi Pepoli + 140 Vespri; costo IVA inclusa 7,16 EUR; prezzi automatici 1=11, 2=18, 4=34 EUR. Operazione assistita su richiesta utente.",
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+    click.echo(f"Promo {prodotto.id} caricata: Pepoli 400 pacchi, Vespri 140 pacchi.")
 
 
 GIACENZE_20_LUGLIO = {
